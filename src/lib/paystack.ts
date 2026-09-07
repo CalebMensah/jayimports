@@ -2,10 +2,11 @@ const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
 type InitializeParams = {
   email: string;
-  amountKobo: number; // Paystack uses the smallest currency unit (pesewas for GHS)
+  amountKobo: number;
   reference: string;
   callbackUrl: string;
   metadata?: Record<string, unknown>;
+  channel: "mobile_money" | "bank_transfer";
 };
 
 export async function initializePaystackTransaction(params: InitializeParams) {
@@ -21,7 +22,7 @@ export async function initializePaystackTransaction(params: InitializeParams) {
       currency: "GHS",
       reference: params.reference,
       callback_url: params.callbackUrl,
-      channels: ["mobile_money"], // MTN/Vodafone/AirtelTigo via Paystack's hosted page
+      channels: [params.channel],
       metadata: params.metadata,
     }),
   });

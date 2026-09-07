@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
-import { POLICIES, BUSINESS } from "@/lib/constants";
-import { HiOutlineHome, HiOutlineTruck, HiOutlineDeviceMobile } from "react-icons/hi";
-
+import { BUSINESS } from "@/lib/constants";
+import { HiOutlineHome, HiOutlineTruck, HiOutlineDeviceMobile, HiOutlineOfficeBuilding } from "react-icons/hi";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function CheckoutPage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [fulfillmentType, setFulfillmentType] = useState<"delivery" | "pickup">("pickup");
   const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"momo_manual" | "momo_auto">("momo_manual");
+  const [paymentChannel, setPaymentChannel] = useState<"mobile_money" | "bank_transfer">("mobile_money");
   const [notes, setNotes] = useState("");
   const [agreedToPolicy, setAgreedToPolicy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -44,12 +44,13 @@ export default function CheckoutPage() {
         customerEmail: customerEmail || undefined,
         fulfillmentType,
         deliveryAddress: fulfillmentType === "delivery" ? deliveryAddress : undefined,
-        paymentMethod,
+        paymentChannel,
         notes: notes || undefined,
         agreedToPolicy,
         items: items.map((i) => ({
           productId: i.productId,
-          variantId: i.variantId,
+          colorId: i.colorId,
+          sizeId: i.sizeId,
           quantity: i.quantity,
         })),
       }),
@@ -65,30 +66,23 @@ export default function CheckoutPage() {
 
     const orderNumber = responseData.order.order_number;
 
-    // Instant payment: send them to Paystack before clearing the cart
-    if (paymentMethod === "momo_auto") {
-      const payRes = await fetch("/api/payments/paystack/initialize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderNumber }),
-      });
-      const payData = await payRes.json();
+    // Every order now goes straight to Paystack — no manual/pending path from checkout
+    const payRes = await fetch("/api/payments/paystack/initialize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderNumber }),
+    });
+    const payData = await payRes.json();
 
-      setSubmitting(false);
+    setSubmitting(false);
 
-      if (!payRes.ok) {
-        setError(payData.error ?? "Could not start payment. Your order was saved — please contact us to pay manually.");
-        return;
-      }
-
-      clearCart();
-      window.location.href = payData.authorizationUrl; // leaves the app to Paystack's hosted page
+    if (!payRes.ok) {
+      setError(payData.error ?? "Could not start payment. Your order was saved — please contact us to complete payment.");
       return;
     }
 
-    setSubmitting(false);
     clearCart();
-    router.push(`/order-confirmation/${orderNumber}`);
+    window.location.href = payData.authorizationUrl;
   }
 
   return (
@@ -159,33 +153,24 @@ export default function CheckoutPage() {
 
         <div>
           <h2 className="text-sm font-medium text-navy-700 mb-3">Payment method</h2>
-          <div className="space-y-2">
-            <label className="flex items-start gap-2 border border-navy-100 rounded p-3 cursor-pointer">
-              <input
-                type="radio"
-                checked={paymentMethod === "momo_manual"}
-                onChange={() => setPaymentMethod("momo_manual")}
-                className="mt-1"
-              />
-              <div>
-                <p className="text-sm text-navy-900">Send payment via Mobile Money</p>
-                <p className="text-xs text-navy-400">
-                  You'll get our MoMo number after placing the order. We confirm manually once received.
-                </p>
-              </div>
-            </label>
-            <label className="flex items-start gap-2 border border-navy-100 rounded p-3 cursor-pointer">
-              <input
-                type="radio"
-                checked={paymentMethod === "momo_auto"}
-                onChange={() => setPaymentMethod("momo_auto")}
-                className="mt-1"
-              />
-              <div>
-                <p className="text-sm text-navy-900">Pay now with Mobile Money (instant)</p>
-                <p className="text-xs text-navy-400">You'll get a MoMo prompt on your phone to approve.</p>
-              </div>
-            </label>
+          <p className="text-xs text-navy-400 mb-3">All payments are processed instantly and securely via Paystack.</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setPaymentChannel("mobile_money")}
+              className={`flex flex-col items-center gap-2 border rounded p-3 text-sm ${paymentChannel === "mobile_money" ? "border-navy-800 bg-navy-800 text-white" : "border-navy-100 text-navy-700"}`}
+            >
+              <HiOutlineDeviceMobile className="w-5 h-5" />
+              Mobile Money
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentChannel("bank_transfer")}
+              className={`flex flex-col items-center gap-2 border rounded p-3 text-sm ${paymentChannel === "bank_transfer" ? "border-navy-800 bg-navy-800 text-white" : "border-navy-100 text-navy-700"}`}
+            >
+              <HiOutlineOfficeBuilding className="w-5 h-5" />
+              Bank Transfer
+            </button>
           </div>
         </div>
 
@@ -205,7 +190,11 @@ export default function CheckoutPage() {
             className="mt-0.5"
           />
           <span>
-            I have reviewed my order and agree to Jay Imports&apos; refund and cancellation policy: {POLICIES.refund}
+            By proceeding to payment, you agree to our{" "}
+            <Link href="/terms" target="_blank" className="text-ocean hover:underline">
+              Terms &amp; Conditions
+            </Link>
+            .
           </span>
         </label>
 
@@ -214,12 +203,11 @@ export default function CheckoutPage() {
           disabled={submitting || !agreedToPolicy}
           className="w-full bg-navy-800 text-white py-3 rounded text-sm font-medium hover:bg-navy-700 transition disabled:opacity-40"
         >
-          {submitting ? "Placing order..." : "Place order"}
+          {submitting ? "Redirecting to payment..." : "Proceed to payment"}
         </button>
       </form>
 
-      {/* Order summary */}
-            <div className="bg-white border border-navy-100 rounded p-5 h-fit order-1 md:order-2">
+      <div className="bg-white border border-navy-100 rounded p-5 h-fit order-1 md:order-2">
         <h3 className="text-sm font-medium text-navy-700 mb-3">Order summary</h3>
         {items.map((item) => (
           <div key={`${item.productId}-${item.variantId ?? ""}`} className="flex justify-between text-sm mb-2">

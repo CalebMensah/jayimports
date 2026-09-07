@@ -10,25 +10,46 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const lowStockOnly = searchParams.get("low_stock") === "true";
 
-  let query = supabase
+  const { data, error } = await supabase
     .from("products")
-    .select("id, name, stock_quantity, is_preorder, status, product_variants(id, name, value, stock_quantity)")
+    .select(`
+      id, name, stock_quantity, is_preorder, status,
+      product_colors(id, color_name, image_url),
+      product_sizes(id, size_value),
+      product_color_size_stock(id, color_id, size_id, stock_quantity)
+    `)
     .neq("status", "archived")
-    .order("stock_quantity", { ascending: true });
+    .order("name");
 
-  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const filtered = lowStockOnly ? data?.filter((p) => p.stock_quantity <= 3) : data;
+  // Flag products that need attention: plain products with low stock,
+  // or any color+size combo with low stock
+  const filtered = lowStockOnly
+    ? data?.filter((p) => {
+        if (p.is_preorder) return false;
+        if (p.product_colors.length === 0) return p.stock_quantity <= 3;
+        return p.product_color_size_stock.some((s) => s.stock_quantity <= 3);
+      })
+    : data;
 
   return NextResponse.json({ products: filtered });
 }
 
-const adjustSchema = z.object({
-  productId: z.string().uuid(),
-  variantId: z.string().uuid().optional(),
-  newQuantity: z.coerce.number().int().min(0),
-});
+const adjustSchema = z.union([
+  // Plain product (no colors) — updates products.stock_quantity
+  z.object({
+    type: z.literal("product"),
+    productId: z.string().uuid(),
+    newQuantity: z.coerce.number().int().min(0),
+  }),
+  // Color+size combination — updates product_color_size_stock row
+  z.object({
+    type: z.literal("color_size"),
+    stockId: z.string().uuid(),
+    newQuantity: z.coerce.number().int().min(0),
+  }),
+]);
 
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient();
@@ -41,17 +62,19 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { productId, variantId, newQuantity } = parsed.data;
-
-  const table = variantId ? "product_variants" : "products";
-  const id = variantId ?? productId;
-
-  const { error } = await supabase
-    .from(table)
-    .update({ stock_quantity: newQuantity })
-    .eq("id", id);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (parsed.data.type === "product") {
+    const { error } = await supabase
+      .from("products")
+      .update({ stock_quantity: parsed.data.newQuantity })
+      .eq("id", parsed.data.productId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  } else {
+    const { error } = await supabase
+      .from("product_color_size_stock")
+      .update({ stock_quantity: parsed.data.newQuantity })
+      .eq("id", parsed.data.stockId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ success: true });
 }

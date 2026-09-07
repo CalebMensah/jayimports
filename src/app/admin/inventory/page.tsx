@@ -13,22 +13,34 @@ export default async function InventoryPage({
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, stock_quantity, is_preorder, product_variants(id, name, value, stock_quantity)")
+    .select(`
+      id, name, stock_quantity, is_preorder,
+      product_colors(id, color_name),
+      product_sizes(id, size_value),
+      product_color_size_stock(id, color_id, size_id, stock_quantity)
+    `)
     .neq("status", "archived")
-    .order("stock_quantity", { ascending: true });
+    .order("name");
 
-  const lowStockCount = products?.filter((p) => !p.is_preorder && p.stock_quantity <= 3).length ?? 0;
+  const lowStockCount =
+    products?.filter((p) => {
+      if (p.is_preorder) return false;
+      if (p.product_colors.length === 0) return p.stock_quantity <= 3;
+      return p.product_color_size_stock.some((s) => s.stock_quantity <= 3);
+    }).length ?? 0;
 
-  const displayProducts = filter === "low"
-    ? products?.filter((p) => !p.is_preorder && p.stock_quantity <= 3)
-    : products;
+  const displayProducts =
+    filter === "low"
+      ? products?.filter((p) => {
+          if (p.is_preorder) return false;
+          if (p.product_colors.length === 0) return p.stock_quantity <= 3;
+          return p.product_color_size_stock.some((s) => s.stock_quantity <= 3);
+        })
+      : products;
 
   return (
     <div>
-      <PageHeader
-        title="Inventory"
-        description="Stock levels across all products"
-      />
+      <PageHeader title="Inventory" description="Stock levels across all products" />
 
       {lowStockCount > 0 && (
         <div className="flex items-center gap-2 bg-amber-50 text-amber-700 text-sm px-4 py-3 rounded mb-4">
@@ -61,29 +73,40 @@ export default async function InventoryPage({
             </tr>
           </thead>
           <tbody>
-            {displayProducts?.map((product) =>
-              product.product_variants && product.product_variants.length > 0 ? (
-                product.product_variants.map((v) => (
+            {displayProducts?.map((product) => {
+              const colorMap = new Map(product.product_colors.map((c) => [c.id, c.color_name]));
+              const sizeMap = new Map(product.product_sizes.map((s) => [s.id, s.size_value]));
+
+              if (product.product_colors.length > 0) {
+                // Color+size stock rows — only show rows that are low when filtering
+                const rows = filter === "low"
+                  ? product.product_color_size_stock.filter((s) => s.stock_quantity <= 3)
+                  : product.product_color_size_stock;
+
+                return rows.map((stockRow) => (
                   <InventoryRow
-                    key={v.id}
-                    id={product.id}
-                    variantId={v.id}
+                    key={stockRow.id}
+                    variant="color_size"
+                    stockId={stockRow.id}
                     label={product.name}
-                    sublabel={`${v.name}: ${v.value}`}
-                    stock={v.stock_quantity}
+                    sublabel={`${colorMap.get(stockRow.color_id) ?? "—"} / ${sizeMap.get(stockRow.size_id) ?? "—"}`}
+                    stock={stockRow.stock_quantity}
                     isPreorder={product.is_preorder}
                   />
-                ))
-              ) : (
+                ));
+              }
+
+              return (
                 <InventoryRow
                   key={product.id}
-                  id={product.id}
+                  variant="product"
+                  productId={product.id}
                   label={product.name}
                   stock={product.stock_quantity}
                   isPreorder={product.is_preorder}
                 />
-              )
-            )}
+              );
+            })}
           </tbody>
         </table>
 

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
   const { data: order } = await supabase
     .from("orders")
-    .select("id, order_number, total, payment_status, payment_method, customer:customers(email, phone)")
+    .select("id, order_number, total, payment_status, payment_method, payment_channel, customer:customers(email, phone)")
     .eq("order_number", parsed.data.orderNumber)
     .single();
 
@@ -34,10 +34,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "This order is already paid" }, { status: 400 });
   }
 
-  // Fallback email — Paystack requires one, but customer may not have provided it
   const customerEmail = (order.customer as any)?.email || `${(order.customer as any)?.phone}@jayimports-guest.com`;
-
   const reference = `JAY-${order.order_number}-${Date.now().toString(36)}`;
+  const channel = order.payment_channel === "bank_transfer" ? "bank_transfer" : "mobile_money";
 
   try {
     const transaction = await initializePaystackTransaction({
@@ -46,9 +45,9 @@ export async function POST(request: NextRequest) {
       reference,
       callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/order-confirmation/${order.order_number}`,
       metadata: { order_id: order.id, order_number: order.order_number },
+      channel,
     });
 
-    // Log the attempt immediately so we have a record even if the customer abandons payment
     await supabase.from("payment_transactions").insert({
       order_id: order.id,
       provider: "paystack",

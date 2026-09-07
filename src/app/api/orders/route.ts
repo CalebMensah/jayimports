@@ -9,14 +9,15 @@ const orderSchema = z.object({
   customerEmail: z.string().email().optional().or(z.literal("")),
   fulfillmentType: z.enum(["delivery", "pickup"]),
   deliveryAddress: z.string().trim().max(300).optional(),
-  paymentMethod: z.enum(["momo_manual", "momo_auto"]),
+  paymentChannel: z.enum(["mobile_money", "bank_transfer"]),
   notes: z.string().trim().max(500).optional(),
-  agreedToPolicy: z.literal(true, { message: "You must agree to the order policy" }),
+  agreedToPolicy: z.literal(true, { message: "You must agree to the terms" }),
   items: z
     .array(
       z.object({
         productId: z.string().uuid(),
-        variantId: z.string().uuid().optional(),
+        colorId: z.string().uuid().optional(),
+        sizeId: z.string().uuid().optional(),
         quantity: z.number().int().positive().max(50),
       })
     )
@@ -42,28 +43,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Delivery address is required" }, { status: 400 });
   }
 
-  const supabase = createAdminClient(); // service role — needed since guests have no auth session
+  const supabase = createAdminClient();
   const { data: settings } = await supabase.from("store_settings").select("delivery_fee_default").single();
   const deliveryFee = data.fulfillmentType === "delivery" ? (settings?.delivery_fee_default ?? 0) : 0;
 
+  // All checkout orders are instant payment now — payment_method is always momo_auto,
+  // payment_channel tells Paystack whether to show Mobile Money or Bank Transfer
   const { data: result, error } = await supabase.rpc("place_order", {
     p_customer_name: data.customerName,
     p_customer_phone: data.customerPhone,
     p_customer_email: data.customerEmail || null,
     p_fulfillment_type: data.fulfillmentType,
     p_delivery_address: data.deliveryAddress ?? null,
-    p_payment_method: data.paymentMethod,
+    p_payment_method: "momo_auto",
+    p_payment_channel: data.paymentChannel,
     p_notes: data.notes ?? null,
     p_delivery_fee: deliveryFee,
     p_items: data.items.map((i) => ({
       product_id: i.productId,
-      variant_id: i.variantId ?? null,
+      color_id: i.colorId ?? null,
+      size_id: i.sizeId ?? null,
       quantity: i.quantity,
     })),
   });
 
   if (error) {
-    // Stock errors raised from the SQL function land here — surface them plainly
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 

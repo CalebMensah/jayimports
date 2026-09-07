@@ -4,9 +4,11 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 
 export type CartItem = {
   productId: string;
-  variantId?: string;
+  variantId?: string; // "colorId::sizeId" combo key — kept as one field for uniqueness checks
+  colorId?: string;
+  sizeId?: string;
   name: string;
-  variantLabel?: string;
+  variantLabel?: string; // e.g. "Red / 42"
   price: number;
   image: string | null;
   quantity: number;
