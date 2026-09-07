@@ -22,7 +22,10 @@ export default async function ProductPage({
     .eq("status", "active")
     .single();
 
-  if (error || !product) notFound();
+    if (error || !product) {
+    console.error("PRODUCT DETAIL ERROR:", slug, error); // TEMP
+    notFound();
+  }
 
   return <ProductDetail product={product} />;
 }

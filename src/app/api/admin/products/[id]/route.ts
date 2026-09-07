@@ -21,7 +21,10 @@ export async function GET(
     .eq("id", id)
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
+  if (error) {
+    console.error("PRODUCT GET ERROR:", id, error); // TEMP
+    return NextResponse.json({ error: error.message }, { status: 404 });
+  }
   return NextResponse.json({ product: data });
 }
 
