@@ -10,26 +10,35 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const lowStockOnly = searchParams.get("low_stock") === "true";
 
-  const { data, error } = await supabase
+  const { data: raw, error } = await supabase
     .from("products")
     .select(`
       id, name, stock_quantity, is_preorder, status,
-      product_colors(id, color_name, image_url),
-      product_sizes(id, size_value),
-      product_color_size_stock(id, color_id, size_id, stock_quantity)
+      product_colors(id, color_name, image_url, product_color_size_stock(id, size_id, stock_quantity)),
+      product_sizes(id, size_value)
     `)
     .neq("status", "archived")
     .order("name");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Flag products that need attention: plain products with low stock,
-  // or any color+size combo with low stock
+  const data = raw?.map((p: any) => ({
+    ...p,
+    product_color_size_stock: p.product_colors.flatMap((c: any) =>
+      (c.product_color_size_stock ?? []).map((s: any) => ({
+        id: s.id,
+        color_id: c.id,
+        size_id: s.size_id,
+        stock_quantity: s.stock_quantity,
+      }))
+    ),
+  }));
+
   const filtered = lowStockOnly
     ? data?.filter((p) => {
         if (p.is_preorder) return false;
         if (p.product_colors.length === 0) return p.stock_quantity <= 3;
-        return p.product_color_size_stock.some((s) => s.stock_quantity <= 3);
+        return p.product_color_size_stock.some((s: any) => s.stock_quantity <= 3);
       })
     : data;
 

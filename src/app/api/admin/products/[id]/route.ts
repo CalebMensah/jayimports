@@ -11,21 +11,33 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
+  const { data: raw, error } = await supabase
     .from("products")
     .select(`*,
       product_images(id, image_url, sort_order),
-      product_colors(id, color_name, image_url, sort_order),
-      product_sizes(id, size_value, price_adjustment, sort_order),
-      product_color_size_stock(id, color_id, size_id, stock_quantity)`)
+      product_colors(id, color_name, image_url, sort_order, product_color_size_stock(id, size_id, stock_quantity)),
+      product_sizes(id, size_value, price_adjustment, sort_order)`)
     .eq("id", id)
     .single();
 
-  if (error) {
-    console.error("PRODUCT GET ERROR:", id, error); // TEMP
-    return NextResponse.json({ error: error.message }, { status: 404 });
+  if (error || !raw) {
+    return NextResponse.json({ error: error?.message ?? "Not found" }, { status: 404 });
   }
-  return NextResponse.json({ product: data });
+
+  // Flatten color -> stock nesting into a simple color_id/size_id/stock_quantity array,
+  // since product_color_size_stock has no direct FK to products, only to product_colors.
+  const product = {
+    ...raw,
+    product_color_size_stock: raw.product_colors.flatMap((c: any) =>
+      (c.product_color_size_stock ?? []).map((s: any) => ({
+        color_id: c.id,
+        size_id: s.size_id,
+        stock_quantity: s.stock_quantity,
+      }))
+    ),
+  };
+
+  return NextResponse.json({ product });
 }
 
 export async function PATCH(
@@ -56,7 +68,11 @@ export async function PATCH(
 
   if (body.images) {
     await supabase.from("product_images").delete().eq("product_id", id);
-    const imageRows = (body.images as string[]).map((url, i) => ({ product_id: id, image_url: url, sort_order: i }));
+    const imageRows = (body.images as string[]).map((url: string, i: number) => ({
+      product_id: id,
+      image_url: url,
+      sort_order: i,
+    }));
     if (imageRows.length > 0) await supabase.from("product_images").insert(imageRows);
   }
 

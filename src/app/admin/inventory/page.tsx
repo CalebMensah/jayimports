@@ -11,22 +11,33 @@ export default async function InventoryPage({
   const { filter } = await searchParams;
   const supabase = await createClient();
 
-  const { data: products } = await supabase
+  const { data: raw } = await supabase
     .from("products")
     .select(`
       id, name, stock_quantity, is_preorder,
-      product_colors(id, color_name),
-      product_sizes(id, size_value),
-      product_color_size_stock(id, color_id, size_id, stock_quantity)
+      product_colors(id, color_name, product_color_size_stock(id, size_id, stock_quantity)),
+      product_sizes(id, size_value)
     `)
     .neq("status", "archived")
     .order("name");
+
+  const products = raw?.map((p: any) => ({
+    ...p,
+    product_color_size_stock: p.product_colors.flatMap((c: any) =>
+      (c.product_color_size_stock ?? []).map((s: any) => ({
+        id: s.id,
+        color_id: c.id,
+        size_id: s.size_id,
+        stock_quantity: s.stock_quantity,
+      }))
+    ),
+  }));
 
   const lowStockCount =
     products?.filter((p) => {
       if (p.is_preorder) return false;
       if (p.product_colors.length === 0) return p.stock_quantity <= 3;
-      return p.product_color_size_stock.some((s) => s.stock_quantity <= 3);
+      return p.product_color_size_stock.some((s: any) => s.stock_quantity <= 3);
     }).length ?? 0;
 
   const displayProducts =
@@ -34,7 +45,7 @@ export default async function InventoryPage({
       ? products?.filter((p) => {
           if (p.is_preorder) return false;
           if (p.product_colors.length === 0) return p.stock_quantity <= 3;
-          return p.product_color_size_stock.some((s) => s.stock_quantity <= 3);
+          return p.product_color_size_stock.some((s: any) => s.stock_quantity <= 3);
         })
       : products;
 
