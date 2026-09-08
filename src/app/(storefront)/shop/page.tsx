@@ -19,7 +19,7 @@ export default async function ShopPage({
 
   let query = supabase
     .from("products")
-    .select("slug, name, price, stock_quantity, is_preorder, category:categories!inner(slug, name), product_images(image_url, sort_order)")
+    .select("slug, name, price, stock_quantity, is_preorder, category:categories!inner(slug, name), product_images(image_url, sort_order), product_colors(image_url, sort_order)")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 

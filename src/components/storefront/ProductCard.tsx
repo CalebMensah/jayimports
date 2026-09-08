@@ -9,17 +9,25 @@ type Product = {
   stock_quantity: number;
   is_preorder: boolean;
   product_images: { image_url: string; sort_order: number }[];
+  product_colors?: { image_url: string; sort_order: number }[];
 };
 
 export function ProductCard({ product }: { product: Product }) {
-  const image = [...product.product_images].sort((a, b) => a.sort_order - b.sort_order)[0];
+  const productImage = [...product.product_images].sort((a, b) => a.sort_order - b.sort_order)[0];
+
+  // Fall back to the first color's photo if no plain product images were uploaded
+  const fallbackColorImage = !productImage
+    ? [...(product.product_colors ?? [])].sort((a, b) => a.sort_order - b.sort_order)[0]
+    : undefined;
+
+  const displayImage = productImage?.image_url ?? fallbackColorImage?.image_url;
 
   return (
     <Link href={`/product/${product.slug}`} className="group block">
       <div className="relative aspect-square bg-white border border-navy-100 overflow-hidden">
-        {image ? (
+        {displayImage ? (
           <Image
-            src={image.image_url}
+            src={displayImage}
             alt={product.name}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyPaystackTransaction } from "@/lib/paystack";
+import { OrderNumberSaveNotice } from "@/components/storefront/OrderNumberSaveNotice";
 
 export default async function OrderConfirmationPage({
   params,
@@ -14,15 +15,16 @@ export default async function OrderConfirmationPage({
   const { reference } = await searchParams;
   const supabase = createAdminClient();
 
-  let { data: order } = await supabase
+  let { data: order, error } = await supabase
     .from("orders")
     .select("order_number, total, payment_method, payment_status, fulfillment_type")
     .eq("order_number", orderNumber)
     .single();
 
-  if (!order) notFound();
+  if (error || !order) {
+    notFound();
+  }
 
-  // Fallback verification if the webhook hasn't landed yet
   if (reference && order.payment_status !== "paid") {
     try {
       const verified = await verifyPaystackTransaction(reference);
@@ -31,7 +33,7 @@ export default async function OrderConfirmationPage({
           .from("orders")
           .update({ payment_status: "paid", status: "confirmed" })
           .eq("order_number", orderNumber)
-          .eq("payment_status", "unpaid"); // avoid double-processing if webhook just landed
+          .eq("payment_status", "unpaid");
 
         const refreshed = await supabase
           .from("orders")
@@ -46,13 +48,15 @@ export default async function OrderConfirmationPage({
   }
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-20 text-center">
+    <div className="max-w-lg mx-auto px-4 py-16 md:py-20 text-center">
       <h1 className="font-display text-2xl text-navy-900 mb-2">
         {order.payment_status === "paid" ? "Payment confirmed" : "Order placed"}
       </h1>
       <p className="text-navy-500 mb-6">
         Order number <span className="text-navy-900 font-medium">{order.order_number}</span>
       </p>
+
+      <OrderNumberSaveNotice orderNumber={order.order_number} />
 
       {order.payment_status === "paid" ? (
         <p className="text-sm text-navy-600 bg-turquoise/10 rounded p-4 mb-6">

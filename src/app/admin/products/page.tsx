@@ -9,7 +9,7 @@ export default async function ProductsListPage() {
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, price, stock_quantity, is_preorder, status, product_images(image_url, sort_order)")
+    .select("id, name, price, stock_quantity, is_preorder, status, product_images(image_url, sort_order), product_colors(image_url, sort_order)")
     .neq("status", "archived")
     .order("created_at", { ascending: false });
 
@@ -42,14 +42,19 @@ export default async function ProductsListPage() {
             </tr>
           </thead>
           <tbody>
-            {products?.map((product) => {
-              const image = product.product_images?.sort((a, b) => a.sort_order - b.sort_order)[0];
+                       {products?.map((product) => {
+              const productImage = [...(product.product_images ?? [])].sort((a, b) => a.sort_order - b.sort_order)[0];
+              const fallbackColorImage = !productImage
+                ? [...(product.product_colors ?? [])].sort((a, b) => a.sort_order - b.sort_order)[0]
+                : undefined;
+              const displayUrl = productImage?.image_url ?? fallbackColorImage?.image_url;
+
               return (
                 <tr key={product.id} className="border-t border-navy-50">
                   <td className="px-4 py-3 flex items-center gap-3">
-                    {image ? (
+                    {displayUrl ? (
                       <Image
-                        src={image.image_url}
+                        src={displayUrl}
                         alt={product.name}
                         width={40}
                         height={40}

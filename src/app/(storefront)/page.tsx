@@ -9,7 +9,7 @@ export default async function HomePage() {
 
   const { data: featuredProducts } = await supabase
     .from("products")
-    .select("slug, name, price, stock_quantity, is_preorder, product_images(image_url, sort_order)")
+    .select("slug, name, price, stock_quantity, is_preorder, product_images(image_url, sort_order), product_colors(image_url, sort_order)")
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(8);
