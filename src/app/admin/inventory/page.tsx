@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { InventoryRow } from "@/components/admin/InventoryRow";
 import { createClient } from "@/lib/supabase/server";
 import { HiOutlineExclamation } from "react-icons/hi";
+import { Key } from "react";
 
 export default async function InventoryPage({
   searchParams,
@@ -85,20 +86,20 @@ export default async function InventoryPage({
           </thead>
           <tbody>
             {displayProducts?.map((product) => {
-              const colorMap = new Map(product.product_colors.map((c) => [c.id, c.color_name]));
-              const sizeMap = new Map(product.product_sizes.map((s) => [s.id, s.size_value]));
+              const colorMap = new Map(product.product_colors.map((c: { id: any; color_name: any; }) => [c.id, c.color_name]));
+              const sizeMap = new Map(product.product_sizes.map((s: { id: any; size_value: any; }) => [s.id, s.size_value]));
 
               if (product.product_colors.length > 0) {
                 // Color+size stock rows — only show rows that are low when filtering
                 const rows = filter === "low"
-                  ? product.product_color_size_stock.filter((s) => s.stock_quantity <= 3)
+                  ? product.product_color_size_stock.filter((s: { stock_quantity: number; }) => s.stock_quantity <= 3)
                   : product.product_color_size_stock;
 
-                return rows.map((stockRow) => (
+                return rows.map((stockRow: { id: Key | null | undefined; color_id: unknown; size_id: unknown; stock_quantity: number; }) => (
                   <InventoryRow
                     key={stockRow.id}
                     variant="color_size"
-                    stockId={stockRow.id}
+                    stockId={String(stockRow.id)}
                     label={product.name}
                     sublabel={`${colorMap.get(stockRow.color_id) ?? "—"} / ${sizeMap.get(stockRow.size_id) ?? "—"}`}
                     stock={stockRow.stock_quantity}
