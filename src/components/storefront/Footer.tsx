@@ -23,6 +23,7 @@ export function Footer() {
           <p>TikTok: @{BUSINESS.tiktok}</p>
         </div>
         <div className="flex gap-4 mt-2 text-xs text-navy-400">
+            <a href="/faq" className="hover:text-white">FAQ</a>
   <a href="/policies" className="hover:text-white">Order Policies</a>
   <a href="/terms" className="hover:text-white">Terms of Service</a>
 </div>
