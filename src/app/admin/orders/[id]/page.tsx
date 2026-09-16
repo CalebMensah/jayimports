@@ -2,9 +2,8 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { OrderActions } from "@/components/admin/OrderActions";
 import { createClient } from "@/lib/supabase/server";
-import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, type OrderStatus, type PaymentStatus }
- from "@/lib/orders";
- import { HiOutlineUser, HiOutlineClipboardList, HiOutlineCreditCard } from "react-icons/hi";
+import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, type OrderStatus, type PaymentStatus } from "@/lib/orders";
+import { HiOutlineUser, HiOutlineClipboardList, HiOutlineCreditCard } from "react-icons/hi";
 
 export default async function OrderDetailPage({
   params,
@@ -36,22 +35,30 @@ export default async function OrderDetailPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Items card */}
+          {/* Items */}
           <div className="bg-white border border-navy-100 rounded p-4 md:p-5">
             <h3 className="font-medium text-navy-900 text-sm mb-3 flex items-center gap-2">
               <HiOutlineClipboardList className="w-4 h-4 text-navy-400" /> Items
             </h3>
-            <div className="overflow-x-auto">            <table className="w-full text-sm min-w-[400px]">
-              <tbody>
-                {order.order_items.map((item: any) => (
-                  <tr key={item.id} className="border-t border-navy-50 first:border-t-0">
-                    <td className="py-2 text-navy-700">{item.product_name}</td>
-                    <td className="py-2 text-navy-400 text-center">× {item.quantity}</td>
-                    <td className="py-2 text-navy-900 text-right">GH₵{item.line_total}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[420px]">
+                <tbody>
+                  {order.order_items.map((item: any) => (
+                    <tr key={item.id} className="border-t border-navy-50 first:border-t-0">
+                      <td className="py-2 text-navy-700">
+                        <p>{item.product_name}</p>
+                        {(item.color_name || item.size_value) && (
+                          <p className="text-xs text-navy-400 mt-0.5">
+                            {[item.color_name, item.size_value].filter(Boolean).join(" / ")}
+                          </p>
+                        )}
+                      </td>
+                      <td className="py-2 text-navy-400 text-center whitespace-nowrap">× {item.quantity}</td>
+                      <td className="py-2 text-navy-900 text-right whitespace-nowrap">GH₵{item.line_total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             <div className="border-t border-navy-100 mt-3 pt-3 space-y-1 text-sm">
               <div className="flex justify-between text-navy-500">
@@ -70,7 +77,7 @@ export default async function OrderDetailPage({
           </div>
 
           {/* Customer */}
-<div className="bg-white border border-navy-100 rounded p-4 md:p-5">
+          <div className="bg-white border border-navy-100 rounded p-4 md:p-5">
             <h3 className="font-medium text-navy-900 text-sm mb-3 flex items-center gap-2">
               <HiOutlineUser className="w-4 h-4 text-navy-400" /> Customer
             </h3>
@@ -88,7 +95,10 @@ export default async function OrderDetailPage({
 
         {/* Sidebar */}
         <div className="space-y-6">
-          <div className="bg-white border border-navy-100 rounded p-5 space-y-2 text-sm">
+          <div className="bg-white border border-navy-100 rounded p-4 md:p-5 space-y-2 text-sm">
+            <h3 className="font-medium text-navy-900 text-sm mb-1 flex items-center gap-2">
+              <HiOutlineCreditCard className="w-4 h-4 text-navy-400" /> Payment
+            </h3>
             <div className="flex justify-between">
               <span className="text-navy-500">Status</span>
               <span className="text-navy-900">{ORDER_STATUS_LABELS[order.status as OrderStatus]}</span>
@@ -98,8 +108,10 @@ export default async function OrderDetailPage({
               <span className="text-navy-900">{PAYMENT_STATUS_LABELS[order.payment_status as PaymentStatus]}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-navy-500">Method</span>
-              <span className="text-navy-900">{order.payment_method === "momo_auto" ? "MoMo (auto)" : "MoMo (manual)"}</span>
+              <span className="text-navy-500">Channel</span>
+              <span className="text-navy-900">
+                {order.payment_channel === "bank_transfer" ? "Bank Transfer" : "Mobile Money"}
+              </span>
             </div>
           </div>
 
