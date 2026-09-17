@@ -4,8 +4,6 @@ import { z } from "zod";
 
 const settingsSchema = z.object({
   business_name: z.string().trim().min(2).max(150),
-  momo_number: z.string().trim().regex(/^0\d{9}$/, "Enter a valid 10-digit number"),
-  momo_network: z.enum(["MTN", "Vodafone", "AirtelTigo"]),
   contact_phone: z.string().trim().regex(/^0\d{9}$/, "Enter a valid 10-digit number"),
   contact_email: z.string().email(),
   pickup_address: z.string().trim().max(300),
