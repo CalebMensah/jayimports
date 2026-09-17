@@ -11,9 +11,9 @@ export default async function OrdersListPage({
   const { status, payment_status } = await searchParams;
   const supabase = await createClient();
 
-  let query = supabase
+    let query = supabase
     .from("orders")
-    .select("id, order_number, status, payment_status, payment_method, total, created_at, customer:customers(full_name, phone)")
+    .select("id, order_number, status, payment_status, payment_method, total, created_at, customer:customers(full_name, phone), batch:preorder_batches(name)")
     .order("created_at", { ascending: false });
 
   if (status) query = query.eq("status", status);
@@ -67,6 +67,9 @@ export default async function OrdersListPage({
                 </td>
                 <td className="px-4 py-3 text-navy-400 text-xs">
                   {new Date(order.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                </td>               
+                  <td className="px-4 py-3 text-navy-500 text-xs">
+                  {(order as any).batch?.name ?? "Waiting"}
                 </td>
               </tr>
             ))}
