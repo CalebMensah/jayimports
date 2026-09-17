@@ -19,7 +19,7 @@ export default async function ShopPage({
 
   let query = supabase
     .from("products")
-    .select("slug, name, price, stock_quantity, is_preorder, category:categories!inner(slug, name), product_images(image_url, sort_order), product_colors(image_url, sort_order)")
+    .select("slug, name, price, category:categories!inner(slug, name), product_images(image_url, sort_order), product_colors(image_url, sort_order)")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
@@ -36,7 +36,6 @@ export default async function ShopPage({
         <SearchBar initialValue={search ?? ""} />
       </div>
 
-      {/* Category image rail */}
       <div className="flex gap-4 overflow-x-auto pb-2 mb-8 -mx-4 px-4 md:mx-0 md:px-0">
         <Link
           href={search ? `/shop?search=${search}` : "/shop"}
@@ -63,13 +62,7 @@ export default async function ShopPage({
                 }`}
               >
                 {cat.image_url ? (
-                  <Image
-                    src={cat.image_url}
-                    alt={cat.name}
-                    fill
-                    className="object-cover"
-                    sizes="80px"
-                  />
+                  <Image src={cat.image_url} alt={cat.name} fill className="object-cover" sizes="80px" />
                 ) : (
                   <div className="w-full h-full bg-navy-50 flex items-center justify-center">
                     <span className="text-[10px] text-navy-400 px-1 text-center leading-tight">{cat.name}</span>
