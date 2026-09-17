@@ -17,7 +17,6 @@ export async function getAnalytics(supabase: SupabaseClient) {
   const lastMonthStart = startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1));
   const thirtyDaysAgo = daysAgo(30);
 
-  // --- Orders (paid + all, for revenue and funnel) ---
   const { data: allOrders } = await supabase
     .from("orders")
     .select("id, total, status, payment_status, created_at, customer_id");
@@ -25,7 +24,6 @@ export async function getAnalytics(supabase: SupabaseClient) {
   const orders = allOrders ?? [];
   const paidOrders = orders.filter((o) => o.payment_status === "paid");
 
-  // Revenue
   const totalRevenue = paidOrders.reduce((sum, o) => sum + Number(o.total), 0);
   const thisMonthRevenue = paidOrders
     .filter((o) => new Date(o.created_at) >= thisMonthStart)
@@ -45,7 +43,6 @@ export async function getAnalytics(supabase: SupabaseClient) {
   const thisMonthOrders = orders.filter((o) => new Date(o.created_at) >= thisMonthStart).length;
   const averageOrderValue = paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0;
 
-  // Order funnel — counts by status
   const statusCounts = orders.reduce<Record<string, number>>((acc, o) => {
     acc[o.status] = (acc[o.status] ?? 0) + 1;
     return acc;
@@ -59,7 +56,6 @@ export async function getAnalytics(supabase: SupabaseClient) {
   const cancelledCount = statusCounts["cancelled"] ?? 0;
   const cancellationRate = totalOrders > 0 ? (cancelledCount / totalOrders) * 100 : 0;
 
-  // Revenue trend — last 30 days, daily
   const dailyRevenueMap = new Map<string, number>();
   for (let i = 29; i >= 0; i--) {
     const d = daysAgo(i);
@@ -78,7 +74,6 @@ export async function getAnalytics(supabase: SupabaseClient) {
     revenue,
   }));
 
-  // --- Order items — best sellers (only from paid orders) ---
   const paidOrderIds = new Set(paidOrders.map((o) => o.id));
   const { data: orderItems } = await supabase
     .from("order_items")
@@ -101,17 +96,6 @@ export async function getAnalytics(supabase: SupabaseClient) {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
 
-  // --- Products — preorder split + low stock ---
-  const { data: products } = await supabase
-    .from("products")
-    .select("id, name, stock_quantity, is_preorder")
-    .neq("status", "archived");
-
-  const preorderCount = products?.filter((p) => p.is_preorder).length ?? 0;
-  const inStockCount = products?.filter((p) => !p.is_preorder).length ?? 0;
-  const lowStockProducts = products?.filter((p) => !p.is_preorder && p.stock_quantity <= 3) ?? [];
-
-  // --- Customers — new vs returning ---
   const customerOrderCounts = new Map<string, number>();
   orders.forEach((o) => {
     customerOrderCounts.set(o.customer_id, (customerOrderCounts.get(o.customer_id) ?? 0) + 1);
@@ -133,9 +117,6 @@ export async function getAnalytics(supabase: SupabaseClient) {
     revenueTrend,
     bestSellersByQuantity,
     bestSellersByRevenue,
-    preorderCount,
-    inStockCount,
-    lowStockProducts,
     totalCustomers,
     newCustomers,
     returningCustomers,
