@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { OrderActions } from "@/components/admin/OrderActions";
 import { createClient } from "@/lib/supabase/server";
+import Image from "next/image";
 import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, type OrderStatus, type PaymentStatus } from "@/lib/orders";
 import { HiOutlineUser, HiOutlineClipboardList, HiOutlineCreditCard } from "react-icons/hi";
 
@@ -42,8 +43,17 @@ export default async function OrderDetailPage({
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[420px]">
                 <tbody>
-                  {order.order_items.map((item: any) => (
+                                    {order.order_items.map((item: any) => (
                     <tr key={item.id} className="border-t border-navy-50 first:border-t-0">
+                      <td className="py-2 pr-3 w-12">
+                        {item.image_url ? (
+                          <div className="relative w-10 h-10 rounded overflow-hidden bg-navy-50 shrink-0">
+                            <Image src={item.image_url} alt={item.product_name} fill className="object-cover" sizes="40px" />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-navy-50 shrink-0" />
+                        )}
+                      </td>
                       <td className="py-2 text-navy-700">
                         <p>{item.product_name}</p>
                         {(item.color_name || item.size_value) && (
