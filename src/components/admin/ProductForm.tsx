@@ -3,19 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import {
-  HiOutlineUpload,
-  HiOutlineX,
-  HiOutlinePlus,
-  HiOutlineTrash,
-  HiOutlinePhotograph,
-} from "react-icons/hi";
+import { HiOutlineUpload, HiOutlineX, HiOutlinePlus, HiOutlineTrash, HiOutlinePhotograph } from "react-icons/hi";
 
 type Category = { id: string; name: string };
-
 type ColorRow = { client_id: string; color_name: string; image_url: string };
 type SizeRow = { client_id: string; size_value: string; price_adjustment: number };
-type StockCell = { color_client_id: string; size_client_id: string; stock_quantity: number };
 
 type ExistingProduct = {
   id: string;
@@ -23,15 +15,12 @@ type ExistingProduct = {
   description: string | null;
   price: number;
   category_id: string;
-  stock_quantity: number;
   moq: number;
-  is_preorder: boolean;
   preorder_fulfillment_note: string | null;
   status: "active" | "draft" | "archived";
   product_images?: { image_url: string }[];
   product_colors?: { id: string; color_name: string; image_url: string }[];
   product_sizes?: { id: string; size_value: string; price_adjustment: number }[];
-  product_color_size_stock?: { color_id: string; size_id: string; stock_quantity: number }[];
 };
 
 function makeClientId() {
@@ -60,31 +49,19 @@ export function ProductForm({
   const [description, setDescription] = useState(existingProduct?.description ?? "");
   const [price, setPrice] = useState(existingProduct?.price?.toString() ?? "");
   const [categoryId, setCategoryId] = useState(existingProduct?.category_id ?? "");
-  const [stockQuantity, setStockQuantity] = useState(existingProduct?.stock_quantity?.toString() ?? "0");
   const [moq, setMoq] = useState(existingProduct?.moq?.toString() ?? "1");
-  const [isPreorder, setIsPreorder] = useState(existingProduct?.is_preorder ?? false);
   const [preorderNote, setPreorderNote] = useState(existingProduct?.preorder_fulfillment_note ?? "");
   const [status, setStatus] = useState(existingProduct?.status ?? "active");
 
   const [imageUrls, setImageUrls] = useState<string[]>(
     existingProduct?.product_images?.map((img) => img.image_url) ?? []
   );
-
-  // Colors: map existing DB rows into client_id = real id, so edits keep them stable
   const [colors, setColors] = useState<ColorRow[]>(
     existingProduct?.product_colors?.map((c) => ({ client_id: c.id, color_name: c.color_name, image_url: c.image_url })) ?? []
   );
   const [sizes, setSizes] = useState<SizeRow[]>(
     existingProduct?.product_sizes?.map((s) => ({ client_id: s.id, size_value: s.size_value, price_adjustment: s.price_adjustment })) ?? []
   );
-  // Stock grid keyed by "colorClientId::sizeClientId" -> quantity
-  const [stockMap, setStockMap] = useState<Record<string, number>>(() => {
-    const map: Record<string, number> = {};
-    existingProduct?.product_color_size_stock?.forEach((row) => {
-      map[`${row.color_id}::${row.size_id}`] = row.stock_quantity;
-    });
-    return map;
-  });
 
   const [uploadingProductImages, setUploadingProductImages] = useState(false);
   const [uploadingColorId, setUploadingColorId] = useState<string | null>(null);
@@ -93,7 +70,6 @@ export function ProductForm({
 
   const hasColors = colors.length > 0;
 
-  // --- Product-level images (used when there are no colors) ---
   async function handleProductImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
@@ -112,7 +88,6 @@ export function ProductForm({
     setImageUrls((prev) => prev.filter((u) => u !== url));
   }
 
-  // --- Colors ---
   function addColor() {
     setColors((prev) => [...prev, { client_id: makeClientId(), color_name: "", image_url: "" }]);
   }
@@ -123,11 +98,8 @@ export function ProductForm({
     setUploadingColorId(clientId);
     const url = await uploadImage(file);
     setUploadingColorId(null);
-    if (url) {
-      setColors((prev) => prev.map((c) => (c.client_id === clientId ? { ...c, image_url: url } : c)));
-    } else {
-      setError("Image upload failed");
-    }
+    if (url) setColors((prev) => prev.map((c) => (c.client_id === clientId ? { ...c, image_url: url } : c)));
+    else setError("Image upload failed");
     e.target.value = "";
   }
 
@@ -137,16 +109,8 @@ export function ProductForm({
 
   function removeColor(clientId: string) {
     setColors((prev) => prev.filter((c) => c.client_id !== clientId));
-    setStockMap((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((key) => {
-        if (key.startsWith(`${clientId}::`)) delete next[key];
-      });
-      return next;
-    });
   }
 
-  // --- Sizes ---
   function addSize() {
     setSizes((prev) => [...prev, { client_id: makeClientId(), size_value: "", price_adjustment: 0 }]);
   }
@@ -157,18 +121,6 @@ export function ProductForm({
 
   function removeSize(clientId: string) {
     setSizes((prev) => prev.filter((s) => s.client_id !== clientId));
-    setStockMap((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((key) => {
-        if (key.endsWith(`::${clientId}`)) delete next[key];
-      });
-      return next;
-    });
-  }
-
-  // --- Stock grid ---
-  function updateStock(colorClientId: string, sizeClientId: string, value: number) {
-    setStockMap((prev) => ({ ...prev, [`${colorClientId}::${sizeClientId}`]: value }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -176,41 +128,23 @@ export function ProductForm({
     setSubmitting(true);
     setError(null);
 
-    if (hasColors && sizes.length === 0) {
-      setError("Add at least one size — colors need shared sizes for buyers to choose from");
-      setSubmitting(false);
-      return;
-    }
     if (hasColors && colors.some((c) => !c.image_url || !c.color_name.trim())) {
       setError("Every color needs a name and an uploaded photo");
       setSubmitting(false);
       return;
     }
 
-    const stockRows = hasColors
-      ? colors.flatMap((color) =>
-          sizes.map((size) => ({
-            color_client_id: color.client_id,
-            size_client_id: size.client_id,
-            stock_quantity: stockMap[`${color.client_id}::${size.client_id}`] ?? 0,
-          }))
-        )
-      : [];
-
     const payload = {
       name,
       description,
       price: Number(price),
       category_id: categoryId,
-      stock_quantity: hasColors ? 0 : Number(stockQuantity),
       moq: Number(moq),
-      is_preorder: isPreorder,
-      preorder_fulfillment_note: isPreorder ? preorderNote : undefined,
+      preorder_fulfillment_note: preorderNote || undefined,
       status,
       images: imageUrls,
       colors: hasColors ? colors : [],
       sizes: hasColors ? sizes : [],
-      stock: stockRows,
     };
 
     const url = isEditing ? `/api/admin/products/${existingProduct.id}` : "/api/admin/products";
@@ -238,7 +172,6 @@ export function ProductForm({
     <form onSubmit={handleSubmit} className="max-w-2xl w-full space-y-6">
       {error && <p className="text-sm text-red-600 bg-red-50 rounded p-3">{error}</p>}
 
-      {/* Basic info */}
       <div>
         <label className="block text-sm text-navy-700 mb-1">Product name</label>
         <input
@@ -290,9 +223,7 @@ export function ProductForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm text-navy-700 mb-1">
-            Minimum order quantity (MOQ)
-          </label>
+          <label className="block text-sm text-navy-700 mb-1">Minimum order quantity (MOQ)</label>
           <input
             required
             type="number"
@@ -301,7 +232,6 @@ export function ProductForm({
             onChange={(e) => setMoq(e.target.value)}
             className="w-full border border-navy-100 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-turquoise"
           />
-          <p className="text-xs text-navy-400 mt-1">Smallest quantity a buyer can order</p>
         </div>
         <div>
           <label className="block text-sm text-navy-700 mb-1">Status</label>
@@ -316,27 +246,24 @@ export function ProductForm({
         </div>
       </div>
 
-      {/* Preorder */}
-      <div className="border border-navy-100 rounded p-4">
-        <label className="flex items-center gap-2 text-sm text-navy-700">
-          <input type="checkbox" checked={isPreorder} onChange={(e) => setIsPreorder(e.target.checked)} />
-          This is a preorder item (sourced per order)
-        </label>
-        {isPreorder && (
-          <input
-            placeholder="e.g. Ships in 2–3 weeks"
-            value={preorderNote}
-            onChange={(e) => setPreorderNote(e.target.value)}
-            className="w-full border border-navy-100 rounded px-3 py-2 text-sm mt-3 focus:outline-none focus:ring-2 focus:ring-turquoise"
-          />
-        )}
+      <div className="border border-turquoise/30 bg-turquoise/5 rounded p-4">
+        <p className="text-sm text-navy-700 font-medium mb-1">This product is a preorder item</p>
+        <p className="text-xs text-navy-400 mb-3">
+          Every product on this store is sourced per order — there&apos;s no separate in-stock option.
+        </p>
+        <label className="block text-sm text-navy-700 mb-1">Estimated delivery time</label>
+        <input
+          placeholder="e.g. Ships in 2–3 weeks"
+          value={preorderNote}
+          onChange={(e) => setPreorderNote(e.target.value)}
+          className="w-full border border-navy-100 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-turquoise"
+        />
       </div>
 
-      {/* Colors section */}
       <div className="border border-navy-100 rounded p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-sm font-medium text-navy-700">Colors</p>
+            <p className="text-sm font-medium text-navy-700">Colors (optional)</p>
             <p className="text-xs text-navy-400">Add a photo per color instead of typing color names</p>
           </div>
           <button type="button" onClick={addColor} className="flex items-center gap-1 text-sm text-ocean hover:underline">
@@ -345,7 +272,7 @@ export function ProductForm({
         </div>
 
         {colors.length === 0 && (
-          <p className="text-xs text-navy-400">No colors added — this product will use the plain image gallery and stock field below instead.</p>
+          <p className="text-xs text-navy-400">No colors added — this product will use the plain image gallery below instead.</p>
         )}
 
         <div className="space-y-3">
@@ -380,7 +307,6 @@ export function ProductForm({
         </div>
       </div>
 
-      {/* Sizes section — only relevant once colors exist */}
       {hasColors && (
         <div className="border border-navy-100 rounded p-4">
           <div className="flex items-center justify-between mb-3">
@@ -419,96 +345,37 @@ export function ProductForm({
         </div>
       )}
 
-      {/* Stock grid — color x size matrix */}
-      {hasColors && sizes.length > 0 && (
-        <div className="border border-navy-100 rounded p-4 overflow-x-auto">
-          <p className="text-sm font-medium text-navy-700 mb-3">Stock per color & size</p>
-          <table className="text-sm min-w-[400px]">
-            <thead>
-              <tr>
-                <th className="text-left pr-3 pb-2 text-navy-500 font-normal">Color</th>
-                {sizes.map((size) => (
-                  <th key={size.client_id} className="pb-2 px-2 text-navy-500 font-normal">
-                    {size.size_value || "—"}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {colors.map((color) => (
-                <tr key={color.client_id} className="border-t border-navy-50">
-                  <td className="py-2 pr-3 flex items-center gap-2">
-                    {color.image_url && (
-                      <div className="relative w-6 h-6 rounded overflow-hidden shrink-0">
-                        <Image src={color.image_url} alt="" fill className="object-cover" sizes="24px" />
-                      </div>
-                    )}
-                    <span className="text-navy-700">{color.color_name || "—"}</span>
-                  </td>
-                  {sizes.map((size) => (
-                    <td key={size.client_id} className="px-2 py-2">
-                      <input
-                        type="number"
-                        min="0"
-                        value={stockMap[`${color.client_id}::${size.client_id}`] ?? 0}
-                        onChange={(e) => updateStock(color.client_id, size.client_id, Number(e.target.value))}
-                        className="w-16 border border-navy-100 rounded px-2 py-1 text-sm"
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Plain image gallery + stock — only shown when there are no colors */}
       {!hasColors && (
-        <>
-          <div>
-            <label className="block text-sm text-navy-700 mb-2">Product images</label>
-            <div className="flex flex-wrap gap-3 mb-3">
-              {imageUrls.map((url) => (
-                <div key={url} className="relative w-20 h-20">
-                  <Image src={url} alt="" fill className="object-cover rounded" sizes="80px" />
-                  <button
-                    type="button"
-                    onClick={() => removeProductImage(url)}
-                    className="absolute -top-2 -right-2 bg-navy-900 text-white rounded-full w-5 h-5 flex items-center justify-center"
-                    aria-label="Remove image"
-                  >
-                    <HiOutlineX className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <label className="inline-flex items-center gap-2 border border-navy-200 border-dashed rounded px-4 py-2.5 text-sm text-navy-600 cursor-pointer hover:border-navy-400">
-              <HiOutlineUpload className="w-4 h-4" />
-              {uploadingProductImages ? "Uploading..." : "Upload images"}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                onChange={handleProductImageSelect}
-                disabled={uploadingProductImages}
-                className="hidden"
-              />
-            </label>
+        <div>
+          <label className="block text-sm text-navy-700 mb-2">Product images</label>
+          <div className="flex flex-wrap gap-3 mb-3">
+            {imageUrls.map((url) => (
+              <div key={url} className="relative w-20 h-20">
+                <Image src={url} alt="" fill className="object-cover rounded" sizes="80px" />
+                <button
+                  type="button"
+                  onClick={() => removeProductImage(url)}
+                  className="absolute -top-2 -right-2 bg-navy-900 text-white rounded-full w-5 h-5 flex items-center justify-center"
+                  aria-label="Remove image"
+                >
+                  <HiOutlineX className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
           </div>
-
-          <div>
-            <label className="block text-sm text-navy-700 mb-1">Stock quantity</label>
+          <label className="inline-flex items-center gap-2 border border-navy-200 border-dashed rounded px-4 py-2.5 text-sm text-navy-600 cursor-pointer hover:border-navy-400">
+            <HiOutlineUpload className="w-4 h-4" />
+            {uploadingProductImages ? "Uploading..." : "Upload images"}
             <input
-              required
-              type="number"
-              min="0"
-              value={stockQuantity}
-              onChange={(e) => setStockQuantity(e.target.value)}
-              className="w-full sm:w-48 border border-navy-100 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-turquoise"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={handleProductImageSelect}
+              disabled={uploadingProductImages}
+              className="hidden"
             />
-          </div>
-        </>
+          </label>
+        </div>
       )}
 
       <button
