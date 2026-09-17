@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { OrderActions } from "@/components/admin/OrderActions";
 import { createClient } from "@/lib/supabase/server";
@@ -35,7 +36,6 @@ export default async function OrderDetailPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Items */}
           <div className="bg-white border border-navy-100 rounded p-4 md:p-5">
             <h3 className="font-medium text-navy-900 text-sm mb-3 flex items-center gap-2">
               <HiOutlineClipboardList className="w-4 h-4 text-navy-400" /> Items
@@ -85,14 +85,19 @@ export default async function OrderDetailPage({
             </div>
           </div>
 
-          {/* Customer */}
           <div className="bg-white border border-navy-100 rounded p-4 md:p-5">
             <h3 className="font-medium text-navy-900 text-sm mb-3 flex items-center gap-2">
               <HiOutlineUser className="w-4 h-4 text-navy-400" /> Customer
             </h3>
-            <p className="text-sm text-navy-700">{order.customer.full_name}</p>
-            <p className="text-sm text-navy-500">{order.customer.phone}</p>
-            {order.customer.email && <p className="text-sm text-navy-500">{order.customer.email}</p>}
+            {order.customer ? (
+              <>
+                <p className="text-sm text-navy-700">{order.customer.full_name}</p>
+                <p className="text-sm text-navy-500">{order.customer.phone}</p>
+                {order.customer.email && <p className="text-sm text-navy-500">{order.customer.email}</p>}
+              </>
+            ) : (
+              <p className="text-sm text-red-500">Customer record unavailable</p>
+            )}
             <p className="text-sm text-navy-500 mt-2">
               {order.fulfillment_type === "delivery" ? order.delivery_address : "Pickup"}
             </p>
@@ -102,7 +107,6 @@ export default async function OrderDetailPage({
           </div>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
           <div className="bg-white border border-navy-100 rounded p-4 md:p-5 space-y-2 text-sm">
             <h3 className="font-medium text-navy-900 text-sm mb-1 flex items-center gap-2">
