@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/storefront/ProductCard";
+import { BatchBanner } from "@/components/storefront/BatchBanner";
 import { createClient } from "@/lib/supabase/server";
 import { BUSINESS } from "@/lib/constants";
 
@@ -15,6 +16,9 @@ export default async function HomePage() {
 
   return (
     <div>
+      <div className="max-w-6xl mx-auto px-4 md:px-6 pt-6">
+        <BatchBanner batch={batch} />
+      </div>
       <section className="border-b border-navy-100 bg-white">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 md:py-24 grid md:grid-cols-2 gap-8 md:gap-10 items-center">
           <div>
