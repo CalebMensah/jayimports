@@ -7,7 +7,7 @@ import { getAnalytics } from "@/lib/analytics";
 import {
   HiOutlineClipboardList,
   HiOutlineCreditCard,
-  HiOutlineExclamation,
+  HiOutlineShoppingBag,
   HiOutlineCash,
   HiOutlineTrendingUp,
   HiOutlineUsers,
@@ -17,25 +17,24 @@ import {
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const [{ count: pendingOrders }, { count: lowStockCount }, { count: unpaidCount }, analytics] =
+  const [{ count: pendingOrders }, { count: unpaidCount }, { count: productCount }, analytics] =
     await Promise.all([
       supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "pending"),
-      supabase.from("products").select("*", { count: "exact", head: true }).lte("stock_quantity", 3),
       supabase.from("orders").select("*", { count: "exact", head: true }).eq("payment_status", "pending_confirmation"),
+      supabase.from("products").select("*", { count: "exact", head: true }).eq("status", "active"),
       getAnalytics(supabase),
     ]);
 
   const attentionStats = [
     { label: "Orders awaiting action", value: pendingOrders ?? 0, icon: HiOutlineClipboardList },
     { label: "Payments to confirm", value: unpaidCount ?? 0, icon: HiOutlineCreditCard },
-    { label: "Products low on stock", value: lowStockCount ?? 0, icon: HiOutlineExclamation },
+    { label: "Active products", value: productCount ?? 0, icon: HiOutlineShoppingBag },
   ];
 
   return (
     <div>
       <PageHeader title="Overview" description="What needs your attention right now" />
 
-      {/* Needs attention */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {attentionStats.map((stat) => {
           const Icon = stat.icon;
@@ -51,7 +50,6 @@ export default async function DashboardPage() {
         })}
       </div>
 
-      {/* Business snapshot */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-display text-lg text-navy-900">Business snapshot</h2>
         <Link
