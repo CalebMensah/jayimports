@@ -9,13 +9,12 @@ import {
   HiOutlineViewGrid,
   HiOutlineShoppingBag,
   HiOutlineClipboardList,
-  HiOutlineArchive,
+  HiOutlineTag,
+  HiOutlineChartBar,
   HiOutlineCog,
   HiOutlineLogout,
   HiOutlineMenu,
   HiOutlineX,
-  HiOutlineChartBar,
-  HiOutlineTag
 } from "react-icons/hi";
 
 const NAV_ITEMS = [
@@ -23,7 +22,6 @@ const NAV_ITEMS = [
   { label: "Products", href: "/admin/products", icon: HiOutlineShoppingBag },
   { label: "Categories", href: "/admin/categories", icon: HiOutlineTag },
   { label: "Orders", href: "/admin/orders", icon: HiOutlineClipboardList },
-  { label: "Inventory", href: "/admin/inventory", icon: HiOutlineArchive },
   { label: "Analytics", href: "/admin/analytics", icon: HiOutlineChartBar },
   { label: "Settings", href: "/admin/settings", icon: HiOutlineCog },
 ];
@@ -40,7 +38,6 @@ export function AdminShell({
 
   return (
     <div className="min-h-screen flex bg-canvas">
-      {/* Mobile topbar */}
       <div className="md:hidden fixed top-0 inset-x-0 h-14 bg-navy-900 text-white flex items-center justify-between px-4 z-50">
         <span className="font-display text-base">Jay Imports</span>
         <button onClick={() => setSidebarOpen(true)} aria-label="Open menu">
@@ -48,7 +45,6 @@ export function AdminShell({
         </button>
       </div>
 
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="md:hidden fixed inset-0 bg-black/40 z-50"
@@ -56,7 +52,6 @@ export function AdminShell({
         />
       )}
 
-      {/* Sidebar — fixed drawer on mobile, static column on desktop */}
       <aside
         className={`w-60 shrink-0 bg-navy-900 text-white flex flex-col fixed md:static inset-y-0 left-0 z-50 transform transition-transform duration-200 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -106,7 +101,6 @@ export function AdminShell({
         </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 pt-14 md:pt-0">
         <main className="flex-1 p-4 md:p-8">{children}</main>
       </div>
