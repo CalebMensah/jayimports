@@ -3,6 +3,8 @@ import { SearchBar } from "@/components/storefront/SearchBar";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import Image from "next/image";
+import { getCurrentBatch } from "@/lib/batches";
+import { BatchBanner } from "@/components/storefront/BatchBanner";
 
 export default async function ShopPage({
   searchParams,
@@ -11,6 +13,7 @@ export default async function ShopPage({
 }) {
   const { category, search } = await searchParams;
   const supabase = await createClient();
+    const batch = await getCurrentBatch(supabase);
 
   const { data: allCategories } = await supabase
     .from("categories")
@@ -31,6 +34,7 @@ export default async function ShopPage({
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-10">
       <h1 className="font-display text-3xl text-navy-900 mb-6">Shop</h1>
+      <BatchBanner batch={batch} />
 
       <div className="mb-6 max-w-sm">
         <SearchBar initialValue={search ?? ""} />
