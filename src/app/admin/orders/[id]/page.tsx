@@ -14,13 +14,14 @@ export default async function OrderDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: order } = await supabase
+    const { data: order } = await supabase
     .from("orders")
     .select(
       `*,
       customer:customers(full_name, phone, email),
       order_items(*, product:products(name)),
-      payment_transactions(*)`
+      payment_transactions(*),
+      batch:preorder_batches(name)`
     )
     .eq("id", id)
     .single();
@@ -112,6 +113,10 @@ export default async function OrderDetailPage({
             <h3 className="font-medium text-navy-900 text-sm mb-1 flex items-center gap-2">
               <HiOutlineCreditCard className="w-4 h-4 text-navy-400" /> Payment
             </h3>
+            <div className="flex justify-between">
+              <span className="text-navy-500">Batch</span>
+              <span className="text-navy-900">{(order as any).batch?.name ?? "Waiting for next batch"}</span>
+            </div>
             <div className="flex justify-between">
               <span className="text-navy-500">Status</span>
               <span className="text-navy-900">{ORDER_STATUS_LABELS[order.status as OrderStatus]}</span>
