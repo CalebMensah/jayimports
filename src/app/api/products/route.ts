@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("products")
-    .select("id, name, slug, price, stock_quantity, is_preorder, category:categories(slug, name), product_images(image_url, sort_order)")
+    .select("id, name, slug, price, category:categories(slug, name), product_images(image_url, sort_order), product_colors(image_url, sort_order)")
     .eq("status", "active")
     .order("created_at", { ascending: false });
 
