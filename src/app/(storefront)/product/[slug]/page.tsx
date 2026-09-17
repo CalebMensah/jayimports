@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProductDetail } from "@/components/storefront/ProductDetail";
+import { getCurrentBatch } from "@/lib/batches";
+import { BatchBanner } from "@/components/storefront/BatchBanner";
 
 export default async function ProductPage({
   params,
@@ -9,6 +11,7 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
   const supabase = await createClient();
+  const batch = await getCurrentBatch(supabase);
 
   const { data: product, error } = await supabase
     .from("products")
@@ -22,5 +25,12 @@ export default async function ProductPage({
 
   if (error || !product) notFound();
 
-  return <ProductDetail product={product} />;
+  return (
+    <div>
+      <div className="max-w-6xl mx-auto px-4 md:px-6 pt-6">
+        <BatchBanner batch={batch} />
+      </div>
+      <ProductDetail product={product} />
+    </div>
+  );
 }
