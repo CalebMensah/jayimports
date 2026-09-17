@@ -9,7 +9,7 @@ export default async function ProductsListPage() {
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, price, stock_quantity, is_preorder, status, product_images(image_url, sort_order), product_colors(image_url, sort_order)")
+    .select("id, name, price, status, product_images(image_url, sort_order), product_colors(image_url, sort_order)")
     .neq("status", "archived")
     .order("created_at", { ascending: false });
 
@@ -29,20 +29,18 @@ export default async function ProductsListPage() {
         }
       />
 
-      <div className="bg-white border border-navy-100 rounded overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white border border-navy-100 rounded overflow-x-auto">
+        <table className="w-full text-sm min-w-[500px]">
           <thead className="bg-navy-50 text-navy-500 text-left">
             <tr>
               <th className="px-4 py-3 font-medium">Product</th>
               <th className="px-4 py-3 font-medium">Price</th>
-              <th className="px-4 py-3 font-medium">Stock</th>
-              <th className="px-4 py-3 font-medium">Type</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
-                       {products?.map((product) => {
+            {products?.map((product) => {
               const productImage = [...(product.product_images ?? [])].sort((a, b) => a.sort_order - b.sort_order)[0];
               const fallbackColorImage = !productImage
                 ? [...(product.product_colors ?? [])].sort((a, b) => a.sort_order - b.sort_order)[0]
@@ -66,14 +64,6 @@ export default async function ProductsListPage() {
                     <span className="text-navy-900">{product.name}</span>
                   </td>
                   <td className="px-4 py-3 text-navy-700">GH₵{product.price}</td>
-                  <td className="px-4 py-3">
-                    <span className={product.stock_quantity <= 3 ? "text-red-600 font-medium" : "text-navy-700"}>
-                      {product.stock_quantity}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-navy-700">
-                    {product.is_preorder ? "Preorder" : "In stock"}
-                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`text-xs px-2 py-1 rounded ${
