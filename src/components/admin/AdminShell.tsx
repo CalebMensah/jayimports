@@ -15,12 +15,14 @@ import {
   HiOutlineLogout,
   HiOutlineMenu,
   HiOutlineX,
+  HiOutlineCollection
 } from "react-icons/hi";
 
 const NAV_ITEMS = [
   { label: "Overview", href: "/admin/dashboard", icon: HiOutlineViewGrid },
   { label: "Products", href: "/admin/products", icon: HiOutlineShoppingBag },
   { label: "Categories", href: "/admin/categories", icon: HiOutlineTag },
+  { label: "Batches", href: "/admin/batches", icon: HiOutlineCollection },
   { label: "Orders", href: "/admin/orders", icon: HiOutlineClipboardList },
   { label: "Analytics", href: "/admin/analytics", icon: HiOutlineChartBar },
   { label: "Settings", href: "/admin/settings", icon: HiOutlineCog },
