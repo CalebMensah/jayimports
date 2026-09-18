@@ -47,6 +47,47 @@ export default async function AnalyticsPage() {
         <RevenueChart data={data.revenueTrend} />
       </div>
 
+      {/* Batch performance */}
+      <div className="bg-white border border-navy-100 rounded p-4 md:p-5 mb-6">
+        <h3 className="text-sm font-medium text-navy-900 mb-4">Batch performance</h3>
+        {data.batches.length === 0 ? (
+          <p className="text-sm text-navy-400">No batches created yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[480px]">
+              <thead>
+                <tr className="text-left text-navy-500 text-xs">
+                  <th className="pb-2 font-normal">Batch</th>
+                  <th className="pb-2 font-normal text-center">Orders</th>
+                  <th className="pb-2 font-normal text-right">Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.batches.map((batch) => (
+                  <tr key={batch.id} className="border-t border-navy-50">
+                    <td className="py-2.5">
+                      <span className="text-navy-900">{batch.name}</span>
+                      {batch.status === "open" && (
+                        <span className="ml-2 text-[10px] bg-turquoise/10 text-turquoise-dark px-1.5 py-0.5 rounded">OPEN</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 text-center text-navy-600">{batch.orderCount}</td>
+                    <td className="py-2.5 text-right text-navy-900">GH₵{batch.revenue.toFixed(0)}</td>
+                  </tr>
+                ))}
+                {data.waitingForBatchCount > 0 && (
+                  <tr className="border-t border-navy-50">
+                    <td className="py-2.5 text-navy-400 italic">Waiting for next batch</td>
+                    <td className="py-2.5 text-center text-navy-400">{data.waitingForBatchCount}</td>
+                    <td className="py-2.5 text-right text-navy-400">—</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-white border border-navy-100 rounded p-4 md:p-5">
           <h3 className="text-sm font-medium text-navy-900 mb-4">Orders by status</h3>
