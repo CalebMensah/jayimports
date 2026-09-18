@@ -19,7 +19,7 @@ export async function getAnalytics(supabase: SupabaseClient) {
 
   const { data: allOrders } = await supabase
     .from("orders")
-    .select("id, total, status, payment_status, created_at, customer_id");
+    .select("id, total, status, payment_status, created_at, customer_id, batch_id");
 
   const orders = allOrders ?? [];
   const paidOrders = orders.filter((o) => o.payment_status === "paid");
@@ -45,11 +45,6 @@ export async function getAnalytics(supabase: SupabaseClient) {
 
   const statusCounts = orders.reduce<Record<string, number>>((acc, o) => {
     acc[o.status] = (acc[o.status] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const paymentStatusCounts = orders.reduce<Record<string, number>>((acc, o) => {
-    acc[o.payment_status] = (acc[o.payment_status] ?? 0) + 1;
     return acc;
   }, {});
 
@@ -104,6 +99,25 @@ export async function getAnalytics(supabase: SupabaseClient) {
   const returningCustomers = Array.from(customerOrderCounts.values()).filter((c) => c > 1).length;
   const newCustomers = totalCustomers - returningCustomers;
 
+  // --- Batches ---
+  const { data: batchRows } = await supabase
+    .from("preorder_batches")
+    .select("id, name, status, target_closes_at, opened_at, closed_at")
+    .order("created_at", { ascending: false });
+
+  const batches = (batchRows ?? []).map((b) => {
+    const batchOrders = orders.filter((o) => o.batch_id === b.id);
+    const batchPaidOrders = batchOrders.filter((o) => o.payment_status === "paid");
+    return {
+      ...b,
+      orderCount: batchOrders.length,
+      revenue: batchPaidOrders.reduce((sum, o) => sum + Number(o.total), 0),
+    };
+  });
+
+  const currentBatch = batches.find((b) => b.status === "open") ?? null;
+  const waitingForBatchCount = orders.filter((o) => !o.batch_id).length;
+
   return {
     totalRevenue,
     thisMonthRevenue,
@@ -112,7 +126,6 @@ export async function getAnalytics(supabase: SupabaseClient) {
     thisMonthOrders,
     averageOrderValue,
     statusCounts,
-    paymentStatusCounts,
     cancellationRate,
     revenueTrend,
     bestSellersByQuantity,
@@ -120,6 +133,9 @@ export async function getAnalytics(supabase: SupabaseClient) {
     totalCustomers,
     newCustomers,
     returningCustomers,
+    batches,
+    currentBatch,
+    waitingForBatchCount,
   };
 }
 
