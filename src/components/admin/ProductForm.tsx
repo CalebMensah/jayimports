@@ -66,6 +66,7 @@ export function ProductForm({
   const [uploadingProductImages, setUploadingProductImages] = useState(false);
   const [uploadingColorId, setUploadingColorId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const hasColors = colors.length > 0;
@@ -166,6 +167,23 @@ export function ProductForm({
 
     router.push("/admin/products");
     router.refresh();
+  }
+
+  async function handleDelete() {
+    if (!existingProduct) return;
+    if (!confirm(`Delete "${existingProduct.name}"? It will be removed from the store, but past orders that included it stay intact.`)) {
+      return;
+    }
+    setDeleting(true);
+    const res = await fetch(`/api/admin/products/${existingProduct.id}`, { method: "DELETE" });
+    setDeleting(false);
+
+    if (res.ok) {
+      router.push("/admin/products");
+      router.refresh();
+    } else {
+      setError("Could not delete product. Please try again.");
+    }
   }
 
   return (
@@ -378,13 +396,26 @@ export function ProductForm({
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="bg-navy-800 text-white px-5 py-2.5 rounded text-sm font-medium hover:bg-navy-700 transition disabled:opacity-50"
-      >
-        {submitting ? "Saving..." : isEditing ? "Save changes" : "Add product"}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="bg-navy-800 text-white px-5 py-2.5 rounded text-sm font-medium hover:bg-navy-700 transition disabled:opacity-50"
+        >
+          {submitting ? "Saving..." : isEditing ? "Save changes" : "Add product"}
+        </button>
+        {isEditing && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600 disabled:opacity-50"
+          >
+            <HiOutlineTrash className="w-4 h-4" />
+            {deleting ? "Deleting..." : "Delete product"}
+          </button>
+        )}
+      </div>
     </form>
   );
 }
