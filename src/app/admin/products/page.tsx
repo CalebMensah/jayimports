@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { PageHeader } from "@/components/admin/PageHeader";
+import { ProductRowActions } from "@/components/admin/ProductRowActions";
 import { createClient } from "@/lib/supabase/server";
 import { HiOutlinePlus } from "react-icons/hi";
 
@@ -75,13 +76,8 @@ export default async function ProductsListPage() {
                       {product.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/admin/products/${product.id}`}
-                      className="text-ocean hover:underline"
-                    >
-                      Edit
-                    </Link>
+                  <td className="px-4 py-3">
+                    <ProductRowActions productId={product.id} productName={product.name} />
                   </td>
                 </tr>
               );
