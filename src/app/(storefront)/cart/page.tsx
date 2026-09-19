@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SHIPPING_INFO } from "@/lib/constants";
 import Image from "next/image";
 import { useCart } from "@/lib/cart-context";
 import { HiOutlineShoppingBag, HiOutlineTrash, HiOutlineMinus, HiOutlinePlus } from "react-icons/hi";
@@ -68,6 +69,9 @@ export default function CartPage() {
         <span className="text-navy-700">Subtotal</span>
         <span className="text-navy-900 font-medium">GH₵{subtotal.toFixed(2)}</span>
       </div>
+            <p className="text-xs text-navy-400 mt-3 leading-relaxed">
+        {SHIPPING_INFO.disclaimer}
+      </p>
 
       <Link
         href="/checkout"
