@@ -86,4 +86,4 @@ export default async function OrderConfirmationPage({
       <Link href="/shop" className="text-ocean hover:underline text-sm">Continue shopping</Link>
     </div>
   );
-              }
+}
