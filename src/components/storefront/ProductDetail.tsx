@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useCart } from "@/lib/cart-context";
 import { HiOutlineClock, HiOutlineCheck, HiOutlineShoppingBag, HiOutlineMinus, HiOutlinePlus } from "react-icons/hi";
+import { SHIPPING_INFO } from "@/lib/constants";
 
 type ProductImage = { image_url: string; sort_order: number };
 type ProductColor = { id: string; color_name: string; image_url: string; sort_order: number };
@@ -94,6 +95,10 @@ export function ProductDetail({
         {product.moq > 1 && (
           <p className="text-xs text-navy-400 mt-1">Minimum order: {product.moq}</p>
         )}
+
+        <p className="text-xs text-navy-400 mt-2 leading-relaxed">
+          {SHIPPING_INFO.shortNote}
+        </p>
 
         {product.description && (
           <p className="text-navy-600 mt-4 leading-relaxed text-sm md:text-base">{product.description}</p>
