@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cart-context";
 import { BUSINESS } from "@/lib/constants";
+import { SHIPPING_INFO } from "@/lib/constants";
 import { HiOutlineHome, HiOutlineTruck, HiOutlineDeviceMobile, HiOutlineOfficeBuilding } from "react-icons/hi";
 
 export default function CheckoutPage() {
@@ -181,6 +182,12 @@ export default function CheckoutPage() {
           rows={2}
           className="w-full border border-navy-100 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-turquoise"
         />
+
+          <div className="border border-amber-200 bg-amber-50 rounded p-3">
+          <p className="text-xs text-amber-800 leading-relaxed">
+            <strong>Shipping is not included in the price shown.</strong> {SHIPPING_INFO.disclaimer}
+          </p>
+        </div>
 
         <label className="flex items-start gap-2 text-xs text-navy-500">
           <input
