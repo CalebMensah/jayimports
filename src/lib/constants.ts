@@ -30,7 +30,7 @@ export const POLICIES = {
 
 export const SHIPPING_INFO = {
   disclaimer:
-    "Prices shown do not include shipping fees. All items are shipped via sea freight only, which typically takes 6–12 weeks to arrive in Ghana. Shipping costs are confirmed after your batch is sourced and shared via our shipping updates WhatsApp group, which you'll get access to once your payment is confirmed.",
+    "Prices shown does not include shipping. All orders come by sea freight and take 6-12 weeks to arrive in Ghana. Your exact shipping cost will be confirmed on arrival and shared in our Shipping Updates WhatsApp group, which you will get access to once your payment is confirmed",
   shortNote: "Price excludes shipping · Sea freight only · 6–12 weeks delivery",
   method: "Sea freight only",
   timeline: "6–12 weeks",
