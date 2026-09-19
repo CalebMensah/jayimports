@@ -55,7 +55,7 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { colors, sizes, stock, ...productData } = parsed.data;
+  const { colors, sizes, ...productData } = parsed.data;
 
   const { data: product, error } = await supabase
     .from("products")
@@ -99,21 +99,6 @@ export async function PATCH(
         .select();
       if (sizeError) return NextResponse.json({ error: sizeError.message }, { status: 500 });
       insertedSizes.forEach((row, i) => sizeIdMap.set(sizes[i].client_id, row.id));
-    }
-
-    if (stock && stock.length > 0) {
-      const stockRows = stock
-        .map((s) => ({
-          color_id: colorIdMap.get(s.color_client_id),
-          size_id: sizeIdMap.get(s.size_client_id),
-          stock_quantity: s.stock_quantity,
-        }))
-        .filter((s) => s.color_id && s.size_id);
-
-      if (stockRows.length > 0) {
-        const { error: stockError } = await supabase.from("product_color_size_stock").insert(stockRows);
-        if (stockError) return NextResponse.json({ error: stockError.message }, { status: 500 });
-      }
     }
   }
 
