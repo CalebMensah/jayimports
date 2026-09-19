@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyPaystackTransaction } from "@/lib/paystack";
+import { SHIPPING_INFO } from "@/lib/constants";
 import { OrderNumberSaveNotice } from "@/components/storefront/OrderNumberSaveNotice";
 
 export default async function OrderConfirmationPage({
@@ -58,14 +59,24 @@ export default async function OrderConfirmationPage({
 
       <OrderNumberSaveNotice orderNumber={order.order_number} />
 
-      {order.payment_status === "paid" ? (
-        <p className="text-sm text-navy-600 bg-turquoise/10 rounded p-4 mb-6">
-          We've received your payment of GH₵{order.total}. We'll start preparing your order.
-        </p>
-      ) : order.payment_method === "momo_manual" ? (
-        <p className="text-sm text-navy-600 bg-turquoise/10 rounded p-4 mb-6">
-          Please send GH₵{order.total} via Mobile Money to <strong>0247288663</strong>, then we'll confirm your order shortly.
-        </p>
+            {order.payment_status === "paid" ? (
+        <>
+          <p className="text-sm text-navy-600 bg-turquoise/10 rounded p-4 mb-4">
+            We've received your payment of GH₵{order.total}. We'll start preparing your order.
+          </p>
+          <div className="border border-navy-100 rounded p-4 mb-6 text-left">
+            <p className="text-sm text-navy-700 font-medium mb-1">Shipping updates</p>
+            <p className="text-xs text-navy-500 mb-3 leading-relaxed">{SHIPPING_INFO.disclaimer}</p>
+            
+              href={SHIPPING_INFO.whatsappGroupUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block bg-navy-800 text-white text-sm px-4 py-2 rounded hover:bg-navy-700 transition"
+            >
+              Join shipping updates group
+            </a>
+          </div>
+        </>
       ) : (
         <p className="text-sm text-navy-600 bg-amber-50 rounded p-4 mb-6">
           We're still confirming your payment — this can take a minute. Refresh this page shortly, or contact us if it doesn't update.
