@@ -27,3 +27,12 @@ export const POLICIES = {
   refund:
     "All orders placed with Jay Imports are considered final once the order has been confirmed and payment has been made. Customers cannot request a refund simply because they have changed their mind, no longer need the item, or no longer wish to wait for their order. However, refunds may be issued if the item arrives faulty/damaged, or if the item is confirmed unavailable or lost during the importation process. Customers may be required to provide clear photos or videos of faulty/damaged items when making a claim. Minor differences in colour, size, appearance, or packaging due to supplier specifications may not qualify for a refund.",
 } as const;
+
+export const SHIPPING_INFO = {
+  disclaimer:
+    "Prices shown do not include shipping fees. All items are shipped via sea freight only, which typically takes 6–12 weeks to arrive in Ghana. Shipping costs are confirmed after your batch is sourced and shared via our shipping updates WhatsApp group, which you'll get access to once your payment is confirmed.",
+  shortNote: "Price excludes shipping · Sea freight only · 6–12 weeks delivery",
+  method: "Sea freight only",
+  timeline: "6–12 weeks",
+  whatsappGroupUrl: "https://chat.whatsapp.com/KhcjPN6r0cFFUkMSmDaBC5?s=cl&p=i&mlu=4&ilr=4",
+} as const;
