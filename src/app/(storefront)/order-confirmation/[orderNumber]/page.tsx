@@ -59,7 +59,7 @@ export default async function OrderConfirmationPage({
 
       <OrderNumberSaveNotice orderNumber={order.order_number} />
 
-            {order.payment_status === "paid" ? (
+      {order.payment_status === "paid" ? (
         <>
           <p className="text-sm text-navy-600 bg-turquoise/10 rounded p-4 mb-4">
             We've received your payment of GH₵{order.total}. We'll start preparing your order.
@@ -86,4 +86,4 @@ export default async function OrderConfirmationPage({
       <Link href="/shop" className="text-ocean hover:underline text-sm">Continue shopping</Link>
     </div>
   );
-}
+              }
