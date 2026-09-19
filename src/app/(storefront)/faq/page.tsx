@@ -19,7 +19,7 @@ const FAQS = [
   {
     question: "How long do preorders take to arrive?",
     answer:
-      "This varies by product and is noted on the product page (e.g. \"Ships in 2–3 weeks\"). Since these items are sourced internationally, delivery times are estimates and can occasionally shift due to customs or supplier availability.",
+      "It takes approximately 6-12 weeks for the things to arrive in Ghana.",
   },
   {
     question: "How do I pay?",
