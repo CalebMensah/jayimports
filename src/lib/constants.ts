@@ -3,7 +3,7 @@ export const BUSINESS = {
   tagline: "Your Global Importation Partner",
   description:
     "Jay Imports is a Ghanaian importation and wholesale business that helps customers source quality products from international suppliers. We specialise in sourcing products from China and other international markets and bringing them to Ghana.",
-  phone: "0559361212",
+  phone: "0247288663",
   email: "Jayimportsgh@gmail.com",
   tiktok: "jay.imports",
   instagram: "Jay importation",
