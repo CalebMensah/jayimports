@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { useCart } from "@/lib/cart-context";
-import { POLICIES } from "@/lib/constants";
 import { HiOutlineClock, HiOutlineCheck, HiOutlineShoppingBag, HiOutlineMinus, HiOutlinePlus } from "react-icons/hi";
 
 type ProductImage = { image_url: string; sort_order: number };
 type ProductColor = { id: string; color_name: string; image_url: string; sort_order: number };
 type ProductSize = { id: string; size_value: string; price_adjustment: number; sort_order: number };
-type StockRow = { color_id: string; size_id: string; stock_quantity: number };
 
 export function ProductDetail({
   product,
@@ -19,14 +17,11 @@ export function ProductDetail({
     name: string;
     description: string | null;
     price: number;
-    stock_quantity: number;
     moq: number;
-    is_preorder: boolean;
     preorder_fulfillment_note: string | null;
     product_images: ProductImage[];
     product_colors: ProductColor[];
     product_sizes: ProductSize[];
-    product_color_size_stock: StockRow[];
   };
 }) {
   const { addItem } = useCart();
@@ -42,19 +37,9 @@ export function ProductDetail({
   const [quantity, setQuantity] = useState(product.moq);
   const [added, setAdded] = useState(false);
 
-  const stockForSelection = useMemo(() => {
-    if (!hasColors) return product.stock_quantity;
-    if (!selectedColor || !selectedSize) return 0;
-    const row = product.product_color_size_stock.find(
-      (s) => s.color_id === selectedColor.id && s.size_id === selectedSize.id
-    );
-    return row?.stock_quantity ?? 0;
-  }, [hasColors, selectedColor, selectedSize, product.product_color_size_stock, product.stock_quantity]);
-
   const effectivePrice = product.price + (hasColors ? (selectedSize?.price_adjustment ?? 0) : 0);
-  const isSoldOut = !product.is_preorder && stockForSelection <= 0;
-
   const displayedImage = hasColors ? selectedColor?.image_url : images[activeImage]?.image_url;
+  const canAdd = !hasColors || (selectedColor && selectedSize);
 
   function handleAddToCart() {
     addItem({
@@ -67,8 +52,8 @@ export function ProductDetail({
       price: effectivePrice,
       image: displayedImage ?? null,
       quantity,
-      isPreorder: product.is_preorder,
-      maxStock: product.is_preorder ? 999 : stockForSelection,
+      isPreorder: true,
+      maxStock: 9999,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -76,7 +61,6 @@ export function ProductDetail({
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-10 grid md:grid-cols-2 gap-6 md:gap-10 pb-28 md:pb-10">
-      {/* Image */}
       <div>
         <div className="relative aspect-square bg-white border border-navy-100 mb-3">
           {displayedImage && (
@@ -98,22 +82,14 @@ export function ProductDetail({
         )}
       </div>
 
-      {/* Info */}
       <div>
-        {product.is_preorder && (
-          <span className="inline-flex items-center gap-1 bg-turquoise-dark text-white text-xs px-2 py-1 rounded mb-3">
-            <HiOutlineClock className="w-3.5 h-3.5" />
-            Preorder{product.preorder_fulfillment_note ? ` — ${product.preorder_fulfillment_note}` : ""}
-          </span>
-        )}
+        <span className="inline-flex items-center gap-1 bg-turquoise-dark text-white text-xs px-2 py-1 rounded mb-3">
+          <HiOutlineClock className="w-3.5 h-3.5" />
+          Preorder{product.preorder_fulfillment_note ? ` — ${product.preorder_fulfillment_note}` : ""}
+        </span>
+
         <h1 className="font-display text-2xl md:text-3xl text-navy-900">{product.name}</h1>
         <p className="text-lg md:text-xl text-navy-700 mt-2">GH₵{effectivePrice.toFixed(2)}</p>
-
-        {!product.is_preorder && (
-          <p className={`text-sm mt-1 ${stockForSelection <= 3 && stockForSelection > 0 ? "text-red-600" : "text-navy-400"}`}>
-            {stockForSelection <= 0 ? "Sold out" : stockForSelection <= 3 ? `Only ${stockForSelection} left` : "In stock"}
-          </p>
-        )}
 
         {product.moq > 1 && (
           <p className="text-xs text-navy-400 mt-1">Minimum order: {product.moq}</p>
@@ -123,7 +99,6 @@ export function ProductDetail({
           <p className="text-navy-600 mt-4 leading-relaxed text-sm md:text-base">{product.description}</p>
         )}
 
-        {/* Color swatches */}
         {hasColors && (
           <div className="mt-5">
             <p className="text-sm text-navy-700 mb-2">
@@ -146,36 +121,27 @@ export function ProductDetail({
           </div>
         )}
 
-        {/* Sizes */}
         {hasColors && sizes.length > 0 && (
           <div className="mt-5">
             <p className="text-sm text-navy-700 mb-2">Size</p>
             <div className="flex gap-2 flex-wrap">
-              {sizes.map((size) => {
-                const stockRow = selectedColor
-                  ? product.product_color_size_stock.find((s) => s.color_id === selectedColor.id && s.size_id === size.id)
-                  : null;
-                const outOfStock = !product.is_preorder && (stockRow?.stock_quantity ?? 0) <= 0;
-                return (
-                  <button
-                    key={size.id}
-                    onClick={() => setSelectedSize(size)}
-                    disabled={outOfStock}
-                    className={`text-sm px-3 py-1.5 rounded border transition disabled:opacity-30 disabled:cursor-not-allowed ${
-                      selectedSize?.id === size.id
-                        ? "border-navy-800 bg-navy-800 text-white"
-                        : "border-navy-100 text-navy-700 hover:border-navy-300"
-                    }`}
-                  >
-                    {size.size_value}
-                  </button>
-                );
-              })}
+              {sizes.map((size) => (
+                <button
+                  key={size.id}
+                  onClick={() => setSelectedSize(size)}
+                  className={`text-sm px-3 py-1.5 rounded border transition ${
+                    selectedSize?.id === size.id
+                      ? "border-navy-800 bg-navy-800 text-white"
+                      : "border-navy-100 text-navy-700 hover:border-navy-300"
+                  }`}
+                >
+                  {size.size_value}
+                </button>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Quantity — floors at MOQ */}
         <div className="mt-5 flex items-center gap-3">
           <p className="text-sm text-navy-700">Quantity</p>
           <div className="flex items-center border border-navy-100 rounded">
@@ -187,11 +153,7 @@ export function ProductDetail({
               <HiOutlineMinus className="w-4 h-4" />
             </button>
             <span className="px-3 text-sm">{quantity}</span>
-            <button
-              onClick={() => setQuantity((q) => (product.is_preorder ? q + 1 : Math.min(q + 1, stockForSelection)))}
-              className="px-3 py-1.5 text-navy-600"
-              aria-label="Increase quantity"
-            >
+            <button onClick={() => setQuantity((q) => q + 1)} className="px-3 py-1.5 text-navy-600" aria-label="Increase quantity">
               <HiOutlinePlus className="w-4 h-4" />
             </button>
           </div>
@@ -199,27 +161,22 @@ export function ProductDetail({
 
         <button
           onClick={handleAddToCart}
-          disabled={isSoldOut || (hasColors && (!selectedColor || !selectedSize))}
+          disabled={!canAdd}
           className="hidden md:flex mt-6 items-center justify-center gap-2 bg-navy-800 text-white px-8 py-3 rounded text-sm font-medium hover:bg-navy-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {isSoldOut ? null : added ? <HiOutlineCheck className="w-4 h-4" /> : <HiOutlineShoppingBag className="w-4 h-4" />}
-          {isSoldOut ? "Sold out" : added ? "Added" : product.is_preorder ? "Preorder now" : "Add to cart"}
+          {added ? <HiOutlineCheck className="w-4 h-4" /> : <HiOutlineShoppingBag className="w-4 h-4" />}
+          {added ? "Added" : "Preorder now"}
         </button>
-
-        {product.is_preorder && (
-          <p className="text-xs text-navy-400 mt-4 leading-relaxed">{POLICIES.preorder}</p>
-        )}
       </div>
 
-      {/* Mobile sticky bar */}
       <div className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-navy-100 p-4 z-40">
         <button
           onClick={handleAddToCart}
-          disabled={isSoldOut || (hasColors && (!selectedColor || !selectedSize))}
+          disabled={!canAdd}
           className="w-full flex items-center justify-center gap-2 bg-navy-800 text-white py-3 rounded text-sm font-medium disabled:opacity-40"
         >
-          {isSoldOut ? null : added ? <HiOutlineCheck className="w-4 h-4" /> : <HiOutlineShoppingBag className="w-4 h-4" />}
-          {isSoldOut ? "Sold out" : added ? "Added" : product.is_preorder ? "Preorder now" : `Add to cart · GH₵${(effectivePrice * quantity).toFixed(2)}`}
+          {added ? <HiOutlineCheck className="w-4 h-4" /> : <HiOutlineShoppingBag className="w-4 h-4" />}
+          {added ? "Added" : `Preorder now · GH₵${(effectivePrice * quantity).toFixed(2)}`}
         </button>
       </div>
     </div>
