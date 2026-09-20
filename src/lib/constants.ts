@@ -7,7 +7,7 @@ export const BUSINESS = {
   email: "Jayimportsgh@gmail.com",
   tiktok: "jay.imports",
   instagram: "Jay importation",
-  location: "Teshie Camp 2 (31st, 2bd Chop Bar), Accra",
+  location: "Teshie Camp 2 (31st, 2nd Chop Bar), Accra",
   categories: [
     "Fashion & Accessories",
     "Bags",
