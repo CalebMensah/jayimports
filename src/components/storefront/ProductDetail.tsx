@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useCart } from "@/lib/cart-context";
-import { HiOutlineClock, HiOutlineCheck, HiOutlineShoppingBag, HiOutlineMinus, HiOutlinePlus } from "react-icons/hi";
 import { SHIPPING_INFO } from "@/lib/constants";
+import { HiOutlineClock, HiOutlineCheck, HiOutlineShoppingBag, HiOutlineMinus, HiOutlinePlus } from "react-icons/hi";
 
 type ProductImage = { image_url: string; sort_order: number };
 type ProductColor = { id: string; color_name: string; image_url: string; sort_order: number };
@@ -27,29 +27,37 @@ export function ProductDetail({
 }) {
   const { addItem } = useCart();
   const hasColors = product.product_colors.length > 0;
+  const hasSizes = product.product_sizes.length > 0;
 
   const images = [...product.product_images].sort((a, b) => a.sort_order - b.sort_order);
   const colors = [...product.product_colors].sort((a, b) => a.sort_order - b.sort_order);
   const sizes = [...product.product_sizes].sort((a, b) => a.sort_order - b.sort_order);
 
+  // Color defaults to the first one (it's just a visual swatch — fine to preselect).
+  // Size is intentionally NOT preselected — auto-picking a size would silently
+  // apply its price adjustment before the customer chose anything.
   const [selectedColor, setSelectedColor] = useState<ProductColor | null>(colors[0] ?? null);
-  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(sizes[0] ?? null);
+  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
   const [activeImage, setActiveImage] = useState(0);
   const [quantity, setQuantity] = useState(product.moq);
   const [added, setAdded] = useState(false);
 
-  const effectivePrice = product.price + (hasColors ? (selectedSize?.price_adjustment ?? 0) : 0);
+  const effectivePrice = product.price + (selectedSize?.price_adjustment ?? 0);
   const displayedImage = hasColors ? selectedColor?.image_url : images[activeImage]?.image_url;
-  const canAdd = !hasColors || (selectedColor && selectedSize);
+
+  // Can add to cart once: a color is picked (if colors exist) AND a size is picked (if sizes exist)
+  const needsColor = hasColors && !selectedColor;
+  const needsSize = hasSizes && !selectedSize;
+  const canAdd = !needsColor && !needsSize;
 
   function handleAddToCart() {
     addItem({
       productId: product.id,
-      variantId: hasColors && selectedColor && selectedSize ? `${selectedColor.id}::${selectedSize.id}` : undefined,
+      variantId: selectedColor && selectedSize ? `${selectedColor.id}::${selectedSize.id}` : undefined,
       colorId: selectedColor?.id,
       sizeId: selectedSize?.id,
       name: product.name,
-      variantLabel: hasColors ? `${selectedColor?.color_name} / ${selectedSize?.size_value}` : undefined,
+      variantLabel: [selectedColor?.color_name, selectedSize?.size_value].filter(Boolean).join(" / ") || undefined,
       price: effectivePrice,
       image: displayedImage ?? null,
       quantity,
@@ -90,15 +98,18 @@ export function ProductDetail({
         </span>
 
         <h1 className="font-display text-2xl md:text-3xl text-navy-900">{product.name}</h1>
-        <p className="text-lg md:text-xl text-navy-700 mt-2">GH₵{effectivePrice.toFixed(2)}</p>
+        <p className="text-lg md:text-xl text-navy-700 mt-2">
+          GH₵{effectivePrice.toFixed(2)}
+          {hasSizes && !selectedSize && (
+            <span className="text-xs text-navy-400 font-normal ml-2">from</span>
+          )}
+        </p>
+
+        <p className="text-xs text-navy-400 mt-2 leading-relaxed">{SHIPPING_INFO.shortNote}</p>
 
         {product.moq > 1 && (
           <p className="text-xs text-navy-400 mt-1">Minimum order: {product.moq}</p>
         )}
-
-        <p className="text-xs text-navy-400 mt-2 leading-relaxed">
-          {SHIPPING_INFO.shortNote}
-        </p>
 
         {product.description && (
           <p className="text-navy-600 mt-4 leading-relaxed text-sm md:text-base">{product.description}</p>
@@ -126,9 +137,11 @@ export function ProductDetail({
           </div>
         )}
 
-        {hasColors && sizes.length > 0 && (
+        {hasSizes && (
           <div className="mt-5">
-            <p className="text-sm text-navy-700 mb-2">Size</p>
+            <p className="text-sm text-navy-700 mb-2">
+              Size{!selectedSize && <span className="text-red-500"> · required</span>}
+            </p>
             <div className="flex gap-2 flex-wrap">
               {sizes.map((size) => (
                 <button
@@ -141,6 +154,11 @@ export function ProductDetail({
                   }`}
                 >
                   {size.size_value}
+                  {size.price_adjustment !== 0 && (
+                    <span className="text-[10px] opacity-70 ml-1">
+                      ({size.price_adjustment > 0 ? "+" : ""}{size.price_adjustment})
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -170,7 +188,7 @@ export function ProductDetail({
           className="hidden md:flex mt-6 items-center justify-center gap-2 bg-navy-800 text-white px-8 py-3 rounded text-sm font-medium hover:bg-navy-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {added ? <HiOutlineCheck className="w-4 h-4" /> : <HiOutlineShoppingBag className="w-4 h-4" />}
-          {added ? "Added" : "Preorder now"}
+          {added ? "Added" : needsSize ? "Select a size" : needsColor ? "Select a color" : "Preorder now"}
         </button>
       </div>
 
@@ -181,7 +199,7 @@ export function ProductDetail({
           className="w-full flex items-center justify-center gap-2 bg-navy-800 text-white py-3 rounded text-sm font-medium disabled:opacity-40"
         >
           {added ? <HiOutlineCheck className="w-4 h-4" /> : <HiOutlineShoppingBag className="w-4 h-4" />}
-          {added ? "Added" : `Preorder now · GH₵${(effectivePrice * quantity).toFixed(2)}`}
+          {added ? "Added" : needsSize ? "Select a size" : needsColor ? "Select a color" : `Preorder now · GH₵${(effectivePrice * quantity).toFixed(2)}`}
         </button>
       </div>
     </div>
