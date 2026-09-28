@@ -349,8 +349,11 @@ export function ProductForm({
                 <input
                   type="number"
                   placeholder="+/- price"
-                  value={size.price_adjustment}
-                  onChange={(e) => updateSize(size.client_id, "price_adjustment", Number(e.target.value))}
+                  value={size.price_adjustment === 0 ? "" : size.price_adjustment}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    updateSize(size.client_id, "price_adjustment", val === "" ? 0 : Number(val));
+                  }}
                   className="w-28 border border-navy-100 rounded px-3 py-2 text-sm"
                 />
                 <button type="button" onClick={() => removeSize(size.client_id)} className="text-red-500" aria-label="Remove size">
