@@ -8,9 +8,9 @@ import { HiOutlinePlus } from "react-icons/hi";
 export default async function ProductsListPage() {
   const supabase = await createClient();
 
-  const { data: products } = await supabase
+    const { data: products } = await supabase
     .from("products")
-    .select("id, name, price, status, product_images(image_url, sort_order), product_colors(image_url, sort_order)")
+    .select("id, name, slug, price, status, product_images(image_url, sort_order), product_colors(image_url, sort_order)")
     .neq("status", "archived")
     .order("created_at", { ascending: false });
 
