@@ -4,8 +4,17 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { HiOutlineTrash } from "react-icons/hi";
+import { ShareButton } from "@/components/storefront/ShareButton";
 
-export function ProductRowActions({ productId, productName }: { productId: string; productName: string }) {
+export function ProductRowActions({
+  productId,
+  productName,
+  productSlug,
+}: {
+  productId: string;
+  productName: string;
+  productSlug: string;
+}) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
 
@@ -24,8 +33,11 @@ export function ProductRowActions({ productId, productName }: { productId: strin
     }
   }
 
+  const productUrl = `${process.env.NEXT_PUBLIC_APP_URL}/product/${productSlug}`;
+
   return (
     <div className="flex items-center justify-end gap-3">
+      <ShareButton productName={productName} productUrl={productUrl} />
       <Link href={`/admin/products/${productId}`} className="text-ocean hover:underline">
         Edit
       </Link>
@@ -39,4 +51,4 @@ export function ProductRowActions({ productId, productName }: { productId: strin
       </button>
     </div>
   );
-}
+        }
