@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { HiOutlinePlus, HiOutlineX, HiOutlineClock } from "react-icons/hi";
+import { HiOutlinePlus, HiOutlineX, HiOutlineClock, HiOutlineChevronRight } from "react-icons/hi";
 
 type Batch = {
   id: string;
@@ -59,22 +60,35 @@ export function BatchManager({ batches, waitingCount }: { batches: Batch[]; wait
     if (res.ok) router.refresh();
   }
 
+  const closedBatches = batches.filter((b) => b.status === "closed");
+
   return (
     <div className="max-w-2xl space-y-6">
       {error && <p className="text-sm text-red-600 bg-red-50 rounded p-3">{error}</p>}
 
       {openBatch ? (
         <div className="bg-white border border-turquoise/30 rounded p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-xs text-turquoise-dark font-medium mb-1">CURRENTLY OPEN</p>
               <p className="text-navy-900 font-medium">{openBatch.name}</p>
               {openBatch.target_closes_at && (
                 <p className="text-xs text-navy-400 mt-1">
-                  Target close: {new Date(openBatch.target_closes_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  Target close:{" "}
+                  {new Date(openBatch.target_closes_at).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
                 </p>
               )}
               <p className="text-xs text-navy-400 mt-1">{openBatch.orders?.[0]?.count ?? 0} orders in this batch</p>
+              <Link
+                href={`/admin/batches/${openBatch.id}`}
+                className="inline-flex items-center gap-1 text-sm text-ocean hover:underline mt-3"
+              >
+                View orders by product <HiOutlineChevronRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
             <button
               onClick={handleCloseBatch}
@@ -89,10 +103,16 @@ export function BatchManager({ batches, waitingCount }: { batches: Batch[]; wait
         <div className="bg-white border border-navy-100 rounded p-4">
           <p className="text-sm text-navy-500 mb-3">No batch is currently open.</p>
           {waitingCount > 0 && (
-            <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mb-3 flex items-center gap-2">
+            <div className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
               <HiOutlineClock className="w-4 h-4 shrink-0" />
-              {waitingCount} order{waitingCount === 1 ? "" : "s"} waiting for the next batch — added automatically once you open one.
-            </p>
+              <span>
+                {waitingCount} order{waitingCount === 1 ? "" : "s"} waiting for the next batch. They&apos;re added
+                automatically once you open one.
+              </span>
+              <Link href="/admin/batches/waiting" className="text-ocean hover:underline">
+                See what&apos;s queued
+              </Link>
+            </div>
           )}
           <form onSubmit={handleOpenBatch} className="space-y-3">
             <input
@@ -103,7 +123,9 @@ export function BatchManager({ batches, waitingCount }: { batches: Batch[]; wait
               className="w-full border border-navy-100 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-turquoise"
             />
             <div>
-              <label className="block text-xs text-navy-500 mb-1">Target closing date (optional — shows a countdown to customers)</label>
+              <label className="block text-xs text-navy-500 mb-1">
+                Target closing date (optional — shows a countdown to customers)
+              </label>
               <input
                 type="date"
                 value={targetDate}
@@ -125,18 +147,25 @@ export function BatchManager({ batches, waitingCount }: { batches: Batch[]; wait
       <div>
         <h3 className="text-sm font-medium text-navy-700 mb-3">Batch history</h3>
         <div className="bg-white border border-navy-100 rounded divide-y divide-navy-50">
-          {batches.filter((b) => b.status === "closed").map((b) => (
-            <div key={b.id} className="px-4 py-3 flex items-center justify-between text-sm">
+          {closedBatches.map((b) => (
+            <Link
+              key={b.id}
+              href={`/admin/batches/${b.id}`}
+              className="px-4 py-3 flex items-center justify-between gap-3 text-sm hover:bg-navy-50/60 transition"
+            >
               <div>
                 <p className="text-navy-900">{b.name}</p>
                 <p className="text-xs text-navy-400">
                   Closed {b.closed_at ? new Date(b.closed_at).toLocaleDateString("en-GB") : "—"}
                 </p>
               </div>
-              <span className="text-navy-400 text-xs">{b.orders?.[0]?.count ?? 0} orders</span>
-            </div>
+              <span className="flex items-center gap-1 text-navy-400 text-xs shrink-0">
+                {b.orders?.[0]?.count ?? 0} orders
+                <HiOutlineChevronRight className="w-3.5 h-3.5" />
+              </span>
+            </Link>
           ))}
-          {batches.filter((b) => b.status === "closed").length === 0 && (
+          {closedBatches.length === 0 && (
             <p className="text-center text-navy-400 text-sm py-6">No closed batches yet.</p>
           )}
         </div>
