@@ -144,7 +144,7 @@ export function ProductDetail({
             </p>
             <div className="flex gap-2 flex-wrap">
               {sizes.map((size) => (
-                <button
+                                <button
                   key={size.id}
                   onClick={() => setSelectedSize(size)}
                   className={`text-sm px-3 py-1.5 rounded border transition ${
@@ -154,11 +154,6 @@ export function ProductDetail({
                   }`}
                 >
                   {size.size_value}
-                  {size.price_adjustment !== 0 && (
-                    <span className="text-[10px] opacity-70 ml-1">
-                      ({size.price_adjustment > 0 ? "+" : ""}{size.price_adjustment})
-                    </span>
-                  )}
                 </button>
               ))}
             </div>
