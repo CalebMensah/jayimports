@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
 import { SHIPPING_INFO } from "@/lib/constants";
 import { OptionButton } from "@/components/storefront/OptionButton";
-import { SelectionList, type SelectionRow } from "@/components/storefront/SelectionList";
+import { CombinationList, type CombinationRow } from "@/components/storefront/CombinationList";
 import {
   HiOutlineCheck,
   HiOutlineCheckCircle,
@@ -36,9 +36,10 @@ type Row = {
   image: string | null;
 };
 
+// One combination the buyer has deliberately added to "Your selection"
+type Entry = { key: string; colorId?: string; sizeId?: string; qty: number };
+
 const bySort = (a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order;
-const toggle = (list: string[], id: string) =>
-  list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 
 export function ProductDetail({
   product,
@@ -69,6 +70,8 @@ export function ProductDetail({
   const hasColors = colors.length > 0;
   const hasSizes = sizes.length > 0;
   const hasChoices = hasColors || hasSizes;
+  // Both kinds of option: the buyer builds one combination at a time
+  const twoDim = hasColors && hasSizes;
 
   const unavailable = useMemo(
     () => new Set((product.unavailable_combos ?? []).map((u) => `${u.color_id}::${u.size_id}`)),
@@ -86,12 +89,16 @@ export function ProductDetail({
     [sizes, base]
   );
 
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  // What the buyer has deliberately added so far
+  const [selection, setSelection] = useState<Entry[]>([]);
+  // The color and size being picked right now (only used when there are both)
+  const [pickColor, setPickColor] = useState<string | null>(null);
+  const [pickSize, setPickSize] = useState<string | null>(null);
+  const [pendingQty, setPendingQty] = useState(moq);
   const [plainQty, setPlainQty] = useState(moq);
   const [thumbIndex, setThumbIndex] = useState<number | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
   const [addedCount, setAddedCount] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,91 +110,75 @@ export function ProductDetail({
     []
   );
 
-  // ---- Every chosen color and size makes one row (one combination, shown once) ----
-  const { rows, skipped } = useMemo(() => {
-    if (!hasChoices) return { rows: [] as Row[], skipped: 0 };
+  function buildRow(colorId?: string, sizeId?: string): Row | null {
+    const color = colorId ? colors.find((c) => c.id === colorId) ?? null : null;
+    const size = sizeId ? sizes.find((s) => s.id === sizeId) ?? null : null;
+    if (colorId && !color) return null;
+    if (sizeId && !size) return null;
+    if (color && size && unavailable.has(`${color.id}::${size.id}`)) return null;
 
-    const colorPicks: (ProductColor | null)[] = hasColors
-      ? colors.filter((c) => selectedColors.includes(c.id))
-      : [null];
-    const sizePicks: (ProductSize | null)[] = hasSizes
-      ? sizes.filter((s) => selectedSizes.includes(s.id))
-      : [null];
-    if (colorPicks.length === 0 || sizePicks.length === 0) return { rows: [] as Row[], skipped: 0 };
+    return {
+      key: `${color?.id ?? "none"}::${size?.id ?? "none"}`,
+      colorId: color?.id,
+      sizeId: size?.id,
+      label: [color?.color_name, size?.size_value].filter(Boolean).join(" / "),
+      price: size ? sizePrices.get(size.id) ?? base : base,
+      image: color?.image_url ?? null,
+    };
+  }
 
-    const result: Row[] = [];
-    let left = 0;
-    for (const color of colorPicks) {
-      for (const size of sizePicks) {
-        if (color && size && unavailable.has(`${color.id}::${size.id}`)) {
-          left += 1;
-          continue;
-        }
-        result.push({
-          key: `${color?.id ?? "none"}::${size?.id ?? "none"}`,
-          colorId: color?.id,
-          sizeId: size?.id,
-          label: [color?.color_name, size?.size_value].filter(Boolean).join(" / "),
-          price: size ? sizePrices.get(size.id) ?? base : base,
-          image: color?.image_url ?? null,
-        });
-      }
-    }
-    return { rows: result, skipped: left };
-  }, [hasChoices, hasColors, hasSizes, colors, sizes, selectedColors, selectedSizes, unavailable, sizePrices, base]);
+  // ---- What is in "Your selection" ----
+  const selectionRows = selection.flatMap((entry) => {
+    const row = buildRow(entry.colorId, entry.sizeId);
+    return row ? [{ entry, row }] : [];
+  });
 
-  const qtyOf = (row: Row) => {
-    const raw = quantities[row.key];
-    if (raw === undefined) return moq;
-    return raw <= 0 ? 0 : Math.max(raw, moq);
-  };
+  // ---- The combination being picked right now (not added yet) ----
+  const pendingRow = twoDim && pickColor && pickSize ? buildRow(pickColor, pickSize) : null;
+  const pendingInList = pendingRow ? selection.some((e) => e.key === pendingRow.key) : false;
+  const pendingNew = pendingRow && !pendingInList ? pendingRow : null;
+  const pendingShown = Math.max(pendingQty, moq);
 
-  const rowQty = rows.map((row) => ({ row, qty: qtyOf(row) }));
-  const activeRows = rowQty.filter((x) => x.qty > 0);
+  // ---- Everything that "Add to cart" will put in the cart ----
+  const lines: { row: Row; qty: number }[] = selectionRows.map(({ entry, row }) => ({
+    row,
+    qty: Math.max(entry.qty, moq),
+  }));
+  if (pendingNew) lines.push({ row: pendingNew, qty: pendingShown });
 
   const plainShown = Math.max(plainQty, moq);
-  const unitCount = hasChoices ? activeRows.reduce((n, x) => n + x.qty, 0) : plainShown;
-  const total = hasChoices ? activeRows.reduce((sum, x) => sum + x.row.price * x.qty, 0) : base * plainShown;
+  const unitCount = hasChoices ? lines.reduce((n, l) => n + l.qty, 0) : plainShown;
+  const total = hasChoices ? lines.reduce((sum, l) => sum + l.row.price * l.qty, 0) : base * plainShown;
 
-  // ---- Which options can still be chosen ----
+  // ---- Which options can be picked ----
   const colorSelectable = (color: ProductColor) =>
-    !hasSizes ||
-    sizes.some(
-      (s) =>
-        (selectedSizes.length === 0 || selectedSizes.includes(s.id)) &&
-        !unavailable.has(`${color.id}::${s.id}`)
-    );
+    !hasSizes || sizes.some((s) => !unavailable.has(`${color.id}::${s.id}`));
   const sizeSelectable = (size: ProductSize) =>
-    !hasColors ||
-    colors.some(
-      (c) =>
-        (selectedColors.length === 0 || selectedColors.includes(c.id)) &&
-        !unavailable.has(`${c.id}::${size.id}`)
-    );
+    !hasColors || colors.some((c) => !unavailable.has(`${c.id}::${size.id}`));
 
   const noneAvailable =
-    hasColors && hasSizes && colors.every((c) => sizes.every((s) => unavailable.has(`${c.id}::${s.id}`)));
+    twoDim && colors.every((c) => sizes.every((s) => unavailable.has(`${c.id}::${s.id}`)));
 
   // ---- Price shown under the title ----
-  const pricePool =
-    activeRows.length > 0
-      ? activeRows.map((x) => x.row.price)
+  const pricePool = !hasChoices
+    ? [base]
+    : lines.length > 0
+      ? lines.map((l) => l.row.price)
       : hasSizes
-        ? (selectedSizes.length > 0 ? sizes.filter((s) => selectedSizes.includes(s.id)) : sizes).map(
-            (s) => sizePrices.get(s.id) ?? base
-          )
+        ? pickSize
+          ? [sizePrices.get(pickSize) ?? base]
+          : sizes.map((s) => sizePrices.get(s.id) ?? base)
         : [base];
   const minPrice = Math.min(...pricePool);
   const maxPrice = Math.max(...pricePool);
-  const showFrom = hasSizes && activeRows.length === 0 && minPrice !== maxPrice;
+  const showFrom = hasSizes && lines.length === 0 && !pickSize && minPrice !== maxPrice;
   const priceText =
-    activeRows.length > 0 && minPrice !== maxPrice
+    lines.length > 0 && minPrice !== maxPrice
       ? `GH₵${minPrice.toFixed(2)} – GH₵${maxPrice.toFixed(2)}`
       : `GH₵${minPrice.toFixed(2)}`;
 
   // ---- Image ----
-  const chosenColors = colors.filter((c) => selectedColors.includes(c.id));
-  const focusColor = chosenColors.find((c) => c.id === focusId) ?? chosenColors[0] ?? null;
+  const focusColor = focusId ? colors.find((c) => c.id === focusId) ?? null : null;
   const displayedImage =
     thumbIndex !== null
       ? images[thumbIndex]?.image_url ?? null
@@ -196,11 +187,9 @@ export function ProductDetail({
   // ---- Button ----
   let blockedLabel: string | null = null;
   if (noneAvailable) blockedLabel = "Not available";
-  else if (hasChoices && activeRows.length === 0) {
-    if (hasColors && selectedColors.length === 0) blockedLabel = "Select Color";
-    else if (hasSizes && selectedSizes.length === 0) blockedLabel = "Select Size";
-    else if (rows.length === 0) blockedLabel = "Not available";
-    else blockedLabel = "Choose a quantity";
+  else if (hasChoices && lines.length === 0) {
+    if (twoDim) blockedLabel = !pickColor ? "Select Color" : !pickSize ? "Select Size" : "Not available";
+    else blockedLabel = hasColors ? "Select Color" : "Select Size";
   }
   const canAdd = blockedLabel === null;
   const buttonLabel = added ? "Added to cart" : blockedLabel ?? "Preorder now";
@@ -208,35 +197,127 @@ export function ProductDetail({
   const cartQtyFor = (variantId?: string) =>
     items.find((i) => i.productId === product.id && (i.variantId ?? "") === (variantId ?? ""))?.quantity ?? 0;
 
-  const listRows: SelectionRow[] = rowQty.map(({ row, qty }) => ({
+  const listRows: CombinationRow[] = selectionRows.map(({ entry, row }) => ({
     key: row.key,
     label: row.label,
     price: row.price,
     image: row.image,
     inCart: cartQtyFor(row.key),
-    qty,
-    atMax: false,
+    qty: Math.max(entry.qty, moq),
+    min: moq,
   }));
 
+  // ---- Heading text for each group of options ----
+  const chosenColorIds = twoDim
+    ? pickColor
+      ? [pickColor]
+      : []
+    : selection.map((e) => e.colorId).filter((id): id is string => Boolean(id));
+  const chosenSizeIds = twoDim
+    ? pickSize
+      ? [pickSize]
+      : []
+    : selection.map((e) => e.sizeId).filter((id): id is string => Boolean(id));
+  const chosenColorNames = colors.filter((c) => chosenColorIds.includes(c.id)).map((c) => c.color_name);
+  const chosenSizeNames = sizes.filter((s) => chosenSizeIds.includes(s.id)).map((s) => s.size_value);
+  const nothingChosen = lines.length === 0 && !pickColor && !pickSize;
+
+  function headingSuffix(names: string[]) {
+    if (names.length === 0) return nothingChosen ? <span className="text-red-500"> · required</span> : null;
+    if (names.length <= 2) return `: ${names.join(", ")}`;
+    return ` · ${names.length} selected`;
+  }
+
   // ---- Actions ----
-  function toggleColor(color: ProductColor) {
-    setSelectedColors((prev) => toggle(prev, color.id));
-    setFocusId(color.id);
+  function toggleEntry(colorId?: string, sizeId?: string) {
+    const row = buildRow(colorId, sizeId);
+    if (!row) return;
+    setSelection((prev) =>
+      prev.some((e) => e.key === row.key)
+        ? prev.filter((e) => e.key !== row.key)
+        : [...prev, { key: row.key, colorId: row.colorId, sizeId: row.sizeId, qty: moq }]
+    );
+  }
+
+  function handleColor(color: ProductColor) {
+    setNote(null);
+    setAddedCount(0);
     setThumbIndex(null);
+
+    // Only colors: tapping several colors adds each of them
+    if (!hasSizes) {
+      const wasChosen = selection.some((e) => e.colorId === color.id);
+      toggleEntry(color.id, undefined);
+      setFocusId(wasChosen ? null : color.id);
+      return;
+    }
+
+    if (pickColor === color.id) {
+      setPickColor(null);
+      setFocusId(null);
+      setPendingQty(moq);
+      return;
+    }
+
+    setPickColor(color.id);
+    setFocusId(color.id);
+    setPendingQty(moq);
+    if (pickSize && unavailable.has(`${color.id}::${pickSize}`)) {
+      const size = sizes.find((s) => s.id === pickSize);
+      setPickSize(null);
+      setNote(`${size?.size_value ?? "That size"} isn't available in ${color.color_name}. Please choose another size.`);
+    }
+  }
+
+  function handleSize(size: ProductSize) {
+    setNote(null);
+    setAddedCount(0);
+
+    // Only sizes: tapping several sizes adds each of them
+    if (!hasColors) {
+      toggleEntry(undefined, size.id);
+      return;
+    }
+
+    if (pickSize === size.id) {
+      setPickSize(null);
+      setPendingQty(moq);
+      return;
+    }
+
+    setPickSize(size.id);
+    setPendingQty(moq);
+    if (pickColor && unavailable.has(`${pickColor}::${size.id}`)) {
+      const color = colors.find((c) => c.id === pickColor);
+      setPickColor(null);
+      setFocusId(null);
+      setNote(`${size.size_value} isn't available in ${color?.color_name ?? "that color"}. Please choose another color.`);
+    }
+  }
+
+  // Keeps the picked combination in "Your selection" and clears the pickers, so nothing gets paired for the buyer
+  function addPending() {
+    if (!pendingNew) return;
+    setSelection((prev) => [
+      ...prev,
+      { key: pendingNew.key, colorId: pendingNew.colorId, sizeId: pendingNew.sizeId, qty: pendingShown },
+    ]);
+    setPickColor(null);
+    setPickSize(null);
+    setPendingQty(moq);
+    setNote(null);
     setAddedCount(0);
   }
 
-  function toggleSize(size: ProductSize) {
-    setSelectedSizes((prev) => toggle(prev, size.id));
+  function stepEntry(key: string, delta: 1 | -1) {
+    setSelection((prev) =>
+      prev.map((e) => (e.key === key ? { ...e, qty: Math.max(moq, Math.max(e.qty, moq) + delta) } : e))
+    );
     setAddedCount(0);
   }
 
-  function stepRow(key: string, delta: 1 | -1) {
-    const entry = rowQty.find((x) => x.row.key === key);
-    if (!entry) return;
-    const current = entry.qty;
-    const next = delta === 1 ? (current === 0 ? moq : current + 1) : current <= moq ? 0 : current - 1;
-    setQuantities((prev) => ({ ...prev, [key]: next }));
+  function removeEntry(key: string) {
+    setSelection((prev) => prev.filter((e) => e.key !== key));
     setAddedCount(0);
   }
 
@@ -257,7 +338,7 @@ export function ProductDetail({
 
     if (hasChoices) {
       addItems(
-        activeRows.map(({ row, qty }) => ({
+        lines.map(({ row, qty }) => ({
           productId: product.id,
           slug: product.slug,
           variantId: row.key,
@@ -273,10 +354,13 @@ export function ProductDetail({
           maxStock: 9999,
         }))
       );
-      setQuantities({}); // every row goes back to the minimum
-      setSelectedColors([]); // CHANGED: clear what was just added
-      setSelectedSizes([]); // CHANGED
-      setFocusId(null); // CHANGED
+      // Everything that was just added is cleared
+      setSelection([]);
+      setPickColor(null);
+      setPickSize(null);
+      setPendingQty(moq);
+      setFocusId(null);
+      setNote(null);
       flashAdded(unitCount);
     } else {
       addItems([
@@ -298,6 +382,8 @@ export function ProductDetail({
   }
 
   const Icon = added ? HiOutlineCheck : HiOutlineShoppingBag;
+  const pickedColorName = colors.find((c) => c.id === pickColor)?.color_name;
+  const pickedSizeName = sizes.find((s) => s.id === pickSize)?.size_value;
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-10 grid md:grid-cols-2 gap-6 md:gap-10 pb-28 md:pb-10">
@@ -355,25 +441,23 @@ export function ProductDetail({
 
         {hasChoices && (
           <div id="options" className="scroll-mt-24">
-            {(colors.length > 1 || sizes.length > 1) && (
-              <p className="mt-5 text-xs text-navy-400">Tap more than one option to order several at once.</p>
+            {twoDim ? (
+              <p className="mt-5 text-xs text-navy-400">
+                Choose a color and a size. To order more than one combination, tap &ldquo;Add &amp; pick
+                another&rdquo; after each one.
+              </p>
+            ) : (
+              (colors.length > 1 || sizes.length > 1) && (
+                <p className="mt-5 text-xs text-navy-400">Tap more than one option to order several at once.</p>
+              )
             )}
 
             {hasColors && (
               <div className="mt-4">
-                <p className="text-sm text-navy-700 mb-2">
-                  Color
-                  {chosenColors.length === 0 ? (
-                    <span className="text-red-500"> · required</span>
-                  ) : chosenColors.length <= 2 ? (
-                    `: ${chosenColors.map((c) => c.color_name).join(", ")}`
-                  ) : (
-                    ` · ${chosenColors.length} selected`
-                  )}
-                </p>
+                <p className="text-sm text-navy-700 mb-2">Color{headingSuffix(chosenColorNames)}</p>
                 <div className="flex gap-2 flex-wrap">
                   {colors.map((color) => {
-                    const chosen = selectedColors.includes(color.id);
+                    const chosen = chosenColorIds.includes(color.id);
                     const selectable = colorSelectable(color);
                     return (
                       <OptionButton
@@ -382,8 +466,8 @@ export function ProductDetail({
                         imageUrl={color.image_url}
                         chosen={chosen}
                         disabled={!selectable && !chosen}
-                        title={selectable || chosen ? color.color_name : "Not available in your chosen sizes"}
-                        onClick={() => toggleColor(color)}
+                        title={selectable || chosen ? color.color_name : "Not available in any size"}
+                        onClick={() => handleColor(color)}
                       />
                     );
                   })}
@@ -393,22 +477,10 @@ export function ProductDetail({
 
             {hasSizes && (
               <div className="mt-4">
-                <p className="text-sm text-navy-700 mb-2">
-                  Size
-                  {selectedSizes.length === 0 ? (
-                    <span className="text-red-500"> · required</span>
-                  ) : selectedSizes.length <= 2 ? (
-                    `: ${sizes
-                      .filter((s) => selectedSizes.includes(s.id))
-                      .map((s) => s.size_value)
-                      .join(", ")}`
-                  ) : (
-                    ` · ${selectedSizes.length} selected`
-                  )}
-                </p>
+                <p className="text-sm text-navy-700 mb-2">Size{headingSuffix(chosenSizeNames)}</p>
                 <div className="flex gap-2 flex-wrap">
                   {sizes.map((size) => {
-                    const chosen = selectedSizes.includes(size.id);
+                    const chosen = chosenSizeIds.includes(size.id);
                     const selectable = sizeSelectable(size);
                     return (
                       <OptionButton
@@ -416,8 +488,8 @@ export function ProductDetail({
                         name={size.size_value}
                         chosen={chosen}
                         disabled={!selectable && !chosen}
-                        title={selectable || chosen ? size.size_value : "Not available in your chosen colors"}
-                        onClick={() => toggleSize(size)}
+                        title={selectable || chosen ? size.size_value : "Not available in any color"}
+                        onClick={() => handleSize(size)}
                       />
                     );
                   })}
@@ -425,20 +497,77 @@ export function ProductDetail({
               </div>
             )}
 
-            {skipped > 0 && (
-              <p className="mt-3 text-xs text-amber-700">
-                {skipped} combination{skipped === 1 ? "" : "s"} of your choices{" "}
-                {skipped === 1 ? "isn't" : "aren't"} available and left out.
+            {note && <p className="mt-3 text-xs text-amber-700">{note}</p>}
+
+            {twoDim && pickColor && !pickSize && (
+              <p className="mt-3 text-xs text-navy-500">Now choose a size for {pickedColorName}.</p>
+            )}
+            {twoDim && pickSize && !pickColor && (
+              <p className="mt-3 text-xs text-navy-500">Now choose a color for size {pickedSizeName}.</p>
+            )}
+
+            {/* The combination being picked: not added to the selection until the buyer says so */}
+            {twoDim && pendingRow && pendingInList && (
+              <p className="mt-3 rounded bg-navy-50 px-3 py-2 text-xs text-navy-600">
+                {pendingRow.label} is already in your selection. Change its quantity below, or pick a different
+                option.
               </p>
+            )}
+
+            {twoDim && pendingNew && (
+              <div className="mt-4 rounded border border-navy-200 bg-white p-3">
+                <div className="flex items-center gap-3">
+                  {pendingNew.image && (
+                    <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-navy-50">
+                      <Image src={pendingNew.image} alt="" fill className="object-cover" sizes="40px" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-navy-800 break-words">{pendingNew.label}</p>
+                    <p className="text-xs text-navy-400">
+                      GH₵{pendingNew.price.toFixed(2)}
+                      {cartQtyFor(pendingNew.key) > 0 ? ` · ${cartQtyFor(pendingNew.key)} already in cart` : ""}
+                    </p>
+                  </div>
+                  <div className="inline-flex shrink-0 items-center rounded-full border border-navy-100">
+                    <button
+                      type="button"
+                      onClick={() => setPendingQty(Math.max(moq, pendingShown - 1))}
+                      disabled={pendingShown <= moq}
+                      className="px-2.5 py-1.5 text-navy-600 disabled:opacity-30"
+                      aria-label="Decrease quantity"
+                    >
+                      <HiOutlineMinus className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="min-w-[1.5rem] text-center text-sm tabular-nums">{pendingShown}</span>
+                    <button
+                      type="button"
+                      onClick={() => setPendingQty(pendingShown + 1)}
+                      className="px-2.5 py-1.5 text-navy-600"
+                      aria-label="Increase quantity"
+                    >
+                      <HiOutlinePlus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addPending}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded border border-navy-800 px-4 py-2 text-sm font-medium text-navy-800 hover:bg-navy-50 transition"
+                >
+                  <HiOutlinePlus className="h-4 w-4" /> Add &amp; pick another
+                </button>
+              </div>
             )}
 
             {listRows.length > 0 && (
               <div className="mt-5">
-                <p className="text-sm text-navy-700 mb-2">Your selection</p>
-                <SelectionList rows={listRows} onStep={stepRow} />
-                {listRows.length > 1 && (
-                  <p className="mt-2 text-xs text-navy-400">Lower a quantity to 0 to leave a combination out.</p>
-                )}
+                <p className="text-sm text-navy-700">Your selection</p>
+                <p className="text-xs text-navy-400 mb-2">
+                  Not in your cart yet. Press the button below when you&apos;re done.
+                </p>
+                <CombinationList rows={listRows} onStep={stepEntry} onRemove={removeEntry} />
               </div>
             )}
           </div>
@@ -477,7 +606,7 @@ export function ProductDetail({
 
         <button
           onClick={handleAddToCart}
-          disabled={!canAdd && !added} // CHANGED
+          disabled={!canAdd && !added}
           className="hidden md:flex mt-4 items-center justify-center gap-2 bg-navy-800 text-white px-8 py-3 rounded text-sm font-medium hover:bg-navy-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Icon className="w-4 h-4" />
@@ -496,7 +625,7 @@ export function ProductDetail({
       <div className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-navy-100 p-4 z-40">
         <button
           onClick={handleAddToCart}
-          disabled={!canAdd && !added} // CHANGED
+          disabled={!canAdd && !added}
           className="w-full flex items-center justify-center gap-2 bg-navy-800 text-white py-3 rounded text-sm font-medium disabled:opacity-40"
         >
           <Icon className="w-4 h-4" />
