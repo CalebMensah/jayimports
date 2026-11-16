@@ -5,6 +5,7 @@ export function OptionButton({
   name,
   imageUrl,
   chosen,
+  active = false,
   disabled,
   title,
   onClick,
@@ -12,10 +13,13 @@ export function OptionButton({
   name: string;
   imageUrl?: string | null;
   chosen: boolean;
+  active?: boolean; // the color whose sizes are being shown
   disabled?: boolean;
   title?: string;
   onClick: () => void;
 }) {
+  const ring = active ? "ring-2 ring-turquoise" : "";
+
   if (imageUrl) {
     return (
       <button
@@ -23,11 +27,12 @@ export function OptionButton({
         onClick={onClick}
         disabled={disabled}
         aria-pressed={chosen}
+        aria-current={active ? "true" : undefined}
         aria-label={name}
         title={title ?? name}
         className={`relative w-14 h-14 rounded border-2 overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed ${
-          chosen ? "border-navy-800" : "border-navy-100"
-        }`}
+          chosen ? "border-navy-800" : active ? "border-navy-400" : "border-navy-100"
+        } ${ring}`}
       >
         <Image src={imageUrl} alt={name} fill className="object-cover" sizes="56px" />
         {chosen && (
@@ -45,12 +50,15 @@ export function OptionButton({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={chosen}
+      aria-current={active ? "true" : undefined}
       title={title ?? name}
       className={`text-sm px-3 py-1.5 rounded border transition max-w-full text-left break-words disabled:opacity-40 disabled:cursor-not-allowed disabled:line-through ${
         chosen
           ? "border-navy-800 bg-navy-800 text-white"
-          : "border-navy-100 text-navy-700 hover:border-navy-300"
-      }`}
+          : active
+            ? "border-navy-400 text-navy-700"
+            : "border-navy-100 text-navy-700 hover:border-navy-300"
+      } ${ring}`}
     >
       {name}
     </button>
