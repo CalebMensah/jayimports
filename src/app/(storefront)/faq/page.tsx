@@ -7,7 +7,7 @@ import { BUSINESS } from "@/lib/constants";
 
 const FAQS = [
   {
-    question: "How does ordering work on Kings Shop and Imports?",
+    question: "How does ordering work?",
     answer:
       "Browse our shop and add items to your cart. Some items are in stock and ship right away; others are preorder items sourced specifically for you from our international suppliers once you order.",
   },
